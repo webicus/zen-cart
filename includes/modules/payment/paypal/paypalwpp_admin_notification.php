@@ -7,7 +7,7 @@
  * @copyright Portions Copyright 2003 osCommerce
  * @copyright Portions Copyright 2004 DevosC.com
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: paypalwpp_admin_notification.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: paypalwpp_admin_notification.php 7425 2007-11-11 19:58:48Z drbyte $
  */
 
   $outputStartBlock = '';
@@ -213,12 +213,6 @@
     $outputPayPal .= '</td></tr>'."\n";
 
     $outputPayPal .= '<tr><td class="main">'."\n";
-    $outputPayPal .= MODULE_PAYMENT_PAYPAL_ENTRY_TXN_TYPE."\n";
-    $outputPayPal .= '</td><td class="main">'."\n";
-    $outputPayPal .= urldecode($response['TRANSACTIONTYPE']) ."\n";
-    $outputPayPal .= '</td></tr>'."\n";
-
-    $outputPayPal .= '<tr><td class="main">'."\n";
     $outputPayPal .= MODULE_PAYMENT_PAYPAL_ENTRY_TXN_ID."\n";
     $outputPayPal .= '</td><td class="main">'."\n";
     $outputPayPal .= urldecode($response['TRANSACTIONID']) ."\n";
@@ -233,6 +227,12 @@
     $outputPayPal .= '</table></td>'."\n";
 
     $outputPayPal .= '<td valign="top"><table>'."\n";
+
+    $outputPayPal .= '<tr><td class="main">'."\n";
+    $outputPayPal .= MODULE_PAYMENT_PAYPAL_ENTRY_TXN_TYPE."\n";
+    $outputPayPal .= '</td><td class="main">'."\n";
+    $outputPayPal .= urldecode($response['TRANSACTIONTYPE']) ."\n";
+    $outputPayPal .= '</td></tr>'."\n";
 
     $outputPayPal .= '<tr><td class="main">'."\n";
     $outputPayPal .= MODULE_PAYMENT_PAYPAL_ENTRY_PAYMENT_TYPE."\n";
@@ -378,24 +378,28 @@
   $output = '<!-- BOF: pp admin transaction processing tools -->';
   $output .= $outputStartBlock;
 
+//debug
+//$output .= '<pre>' . print_r($response, true) . '</pre>';
+
   if (isset($response['RESPMSG'])) { // payflow
     $output .= $outputPFmain;
-    if (method_exists($this, '_doVoid') && (MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE == 'Auth Only' || (isset($_GET['authcapt']) && $_GET['authcapt']=='on'))) $output .= $outputVoid;
-    if (method_exists($this, '_doCapt') && (MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE == 'Auth Only' || (isset($_GET['authcapt']) && $_GET['authcapt']=='on'))) $output .= $outputCapt;
+    if (method_exists($this, '_doVoid') && (MODULE_PAYMENT_PAYPALDP_TRANSACTION_MODE == 'Auth Only' || MODULE_PAYMENT_PAYFLOW_TRANSACTION_MODE == 'Auth Only' || (isset($_GET['authcapt']) && $_GET['authcapt']=='on'))) $output .= $outputVoid;
+    if (method_exists($this, '_doCapt') && (MODULE_PAYMENT_PAYPALDP_TRANSACTION_MODE == 'Auth Only' || MODULE_PAYMENT_PAYFLOW_TRANSACTION_MODE == 'Auth Only' || (isset($_GET['authcapt']) && $_GET['authcapt']=='on'))) $output .= $outputCapt;
     if (method_exists($this, '_doRefund')) $output .= $outputRefund;
   } else {  // PayPal
     $output .= $outputPayPal;
-    if ($response['TRANSACTION_TYPE'] == 'Authorization' || (isset($_GET['authcapt']) && $_GET['authcapt']=='on')) {
+    if ($response['TRANSACTION_TYPE'] == 'Authorization' || ($response['TRANSACTIONTYPE'] == 'cart' && $response['PAYMENTTYPE'] == 'instant' && $response['PENDINGREASON'] == 'authorization') || (isset($_GET['authcapt']) && $_GET['authcapt']=='on')) {
       $output .= $outputEndBlock;
       $output .= $outputEndBlock;
       $output .= $outputStartBlock;
       $output .= $outputStartBlock;
-      if (method_exists($this, '_doRefund')) $output .= $outputRefund;
-      if (method_exists($this, '_doAuth') && MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE == 'Auth Only') $output .= $outputAuth;
-      if (method_exists($this, '_doCapt') && MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE == 'Auth Only') $output .= $outputCapt;
+      if (method_exists($this, '_doRefund') && ($response['PAYMENTTYPE'] != 'instant' || $module == 'paypaldp')) $output .= $outputRefund;
+      if (method_exists($this, '_doAuth') && MODULE_PAYMENT_PAYPALDP_TRANSACTION_MODE == 'Auth Only') $output .= $outputAuth;
+      if (method_exists($this, '_doCapt') && MODULE_PAYMENT_PAYPALDP_TRANSACTION_MODE == 'Auth Only') $output .= $outputCapt;
       if (method_exists($this, '_doVoid')) $output .= $outputVoid;
     } else {
-      if (method_exists($this, '_doRefund')) $output .= $outputRefund;
+      if (method_exists($this, '_doRefund') && ($response['PAYMENTTYPE'] != 'instant' || $module == 'paypaldp')) $output .= $outputRefund;
+      if (method_exists($this, '_doVoid') && $response['PAYMENTTYPE'] == 'instant' && $response['PAYMENTSTATUS'] != 'Voided' && $module != 'paypaldp') $output .= $outputVoid;
     }
   }
   $output .= $outputEndBlock;

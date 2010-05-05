@@ -5,9 +5,9 @@
  * @package paymentMethod
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
- * @copyright Portions Copyright (c) 2004 DevosC.com
+ * @copyright Portions Copyright 2004 DevosC.com
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: paypal_functions.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: paypal_functions.php 7195 2007-10-06 14:29:44Z drbyte $
  */
 
 // Functions for paypal processing
@@ -28,12 +28,13 @@
     if ($email_address == '') $email_address = (defined('MODULE_PAYMENT_PAYPAL_DEBUG_EMAIL_ADDRESS') ? MODULE_PAYMENT_PAYPAL_DEBUG_EMAIL_ADDRESS : STORE_OWNER_EMAIL_ADDRESS);
     if(!isset($paypal_error_counter)) $paypal_error_counter = 0;
     if(!isset($paypal_instance_id)) $paypal_instance_id = time() . '_' . zen_create_random_value(4);
-    if (MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log and Email' || MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Log and Email' || $always_send) {
+    if ((defined('MODULE_PAYMENT_PAYPALWPP_DEBUGGING') && MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log and Email') || (defined('MODULE_PAYMENT_PAYPAL_IPN_DEBUG') && MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Log and Email') || $always_send) {
       $paypal_error_counter ++;
-      zen_mail(STORE_OWNER, $email_address, $subjecttext . ' (' . $paypal_instance_id . ') #' . $paypal_error_counter, $message, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$message));
+      zen_mail(STORE_OWNER, $email_address, $subjecttext . ' (' . $paypal_instance_id . ') #' . $paypal_error_counter, $message, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$message), 'debug');
     }
-    if (MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Log and Email' || MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Log File' || MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Yes' || MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log File' || MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log and Email') ipn_add_error_log($message, $paypal_instance_id);
+    if ((defined('MODULE_PAYMENT_PAYPAL_IPN_DEBUG') && (MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Log and Email' || MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Log File' || MODULE_PAYMENT_PAYPAL_IPN_DEBUG == 'Yes')) || (defined('MODULE_PAYMENT_PAYPALWPP_DEBUGGING') && (MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log File' || MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log and Email'))) ipn_add_error_log($message, $paypal_instance_id);
   }
+
   function ipn_get_stored_session($session_stuff) {
     global $db;
     if (!is_array($session_stuff)) {
@@ -64,18 +65,18 @@
     $paypalipnID = 0;
     $transType = 'unknown';
 
-    $sql = "SELECT zen_order_id, paypal_ipn_id, payment_status, txn_type, pending_reason
+    $sql = "SELECT order_id, paypal_ipn_id, payment_status, txn_type, pending_reason
                 FROM " . $useTable . "
                 WHERE txn_id = :transactionID
-                ORDER BY zen_order_id DESC  ";
+                ORDER BY order_id DESC  ";
     $sql1 = $db->bindVars($sql, ':transactionID', $postArray['parent_txn_id'], 'string');
     $sql2 = $db->bindVars($sql, ':transactionID', $postArray['txn_id'], 'string');
-    if (isset($postArray['parent_txn_id'])) {
+    if (isset($postArray['parent_txn_id']) && trim($postArray['parent_txn_id']) != '') {
       $ipn_id = $db->Execute($sql1);
       if($ipn_id->RecordCount() > 0) {
         ipn_debug_email('IPN NOTICE :: This transaction HAS a parent record. Thus this is an update of some sort.');
         $transType = 'parent';
-        $ordersID = $ipn_id->fields['zen_order_id'];
+        $ordersID = $ipn_id->fields['order_id'];
         $paypalipnID = $ipn_id->fields['paypal_ipn_id'];
       }
     } else {
@@ -101,6 +102,7 @@
             case 'echeck':
               ipn_debug_email('IPN NOTICE :: Found pending-echeck record in database');
               if ($postArray['payment_status'] == 'Completed') $transType = 'cleared-echeck';
+              if ($postArray['payment_status'] == 'Completed' && $postArray['txn_type'] == 'web_accept') $transType = 'cleared-echeck';
               if ($postArray['payment_status'] == 'Denied')    $transType = 'denied-echeck';
               if ($postArray['payment_status'] == 'Failed')    $transType = 'failed-echeck';
               if ($postArray['payment_status'] == 'Pending')   $transType = 'pending-echeck';
@@ -108,6 +110,9 @@
             case 'authorization':
               ipn_debug_email('IPN NOTICE :: Found pending-authorization record in database');
               $transType = 'cleared-authorization';
+              if ($postArray['payment_status'] == 'Voided') $transType = 'voided';
+              if ($postArray['payment_status'] == 'Pending') $transType = 'pending-authorization';
+              if ($postArray['payment_status'] == 'Captured') $transType = 'captured';
             break;
             case 'verify':
               ipn_debug_email('IPN NOTICE :: Found pending-verify record in database');
@@ -125,14 +130,14 @@
             break;
           }
           if ($transType != 'unknown') {
-            $ordersID = $ipn_id->fields['zen_order_id'];
+            $ordersID = $ipn_id->fields['order_id'];
             $paypalipnID = $ipn_id->fields['paypal_ipn_id'];
           }
           $ipn_id->MoveNext();
         }
       }
     }
-    return array('zen_order_id' => $ordersID, 'paypal_ipn_id' => $paypalipnID, 'txn_type' => $transType);
+    return array('order_id' => $ordersID, 'paypal_ipn_id' => $paypalipnID, 'txn_type' => $transType);
   }
 /**
  * IPN Validation
@@ -238,14 +243,20 @@
       $txn_type = 'pending-verify';
       return $txn_type;
     }
+    if (($postArray['payment_status']=='Voided') && $postArray['payment_type']=='instant') {
+      $txn_type = 'voided';
+      return $txn_type;
+    }
     return $txn_type;
   }
 /**
  * Create order record from IPN data
  */
   function ipn_create_order_array($new_order_id, $txn_type) {
-    $paypal_order = array('zen_order_id' => $new_order_id,
+    $sql_data_array = array('order_id' => $new_order_id,
                           'txn_type' => $txn_type,
+                          'module_name' => 'paypal (ipn-handler)',
+                          'module_mode' => 'IPN',
                           'reason_code' => $_POST['reason_code'],
                           'payment_type' => $_POST['payment_type'],
                           'payment_status' => $_POST['payment_status'],
@@ -282,58 +293,60 @@
                           'date_added' => 'now()',
                           'memo' => $_POST['memo']
                          );
-    return $paypal_order;
+    return $sql_data_array;
   }
 /**
  * Create order-history record from IPN data
  */
   function ipn_create_order_history_array($insert_id) {
-    $paypal_order_history = array ('paypal_ipn_id' => $insert_id,
+    $sql_data_array = array ('paypal_ipn_id' => $insert_id,
                                    'txn_id' => $_POST['txn_id'],
                                    'parent_txn_id' => $_POST['parent_txn_id'],
                                    'payment_status' => $_POST['payment_status'],
                                    'pending_reason' => $_POST['pending_reason'],
                                    'date_added' => 'now()'
                                   );
-    return $paypal_order_history;
+    return $sql_data_array;
   }
 /**
  * Create order-update from IPN data
  */
   function ipn_create_order_update_array($txn_type) {
-    $paypal_order = array('reason_code' => $_POST['reason_code'],
-                          'payment_type' => $_POST['payment_type'],
+    $sql_data_array = array('payment_type' => $_POST['payment_type'],
                           'txn_type' => $txn_type,
                           'parent_txn_id' => $_POST['parent_txn_id'],
                           'payment_status' => $_POST['payment_status'],
                           'pending_reason' => $_POST['pending_reason'],
-                          'invoice' => $_POST['invoice'],
-                          'mc_currency' => $_POST['mc_currency'],
-                          'first_name' => $_POST['first_name'],
-                          'last_name' => $_POST['last_name'],
-                          'payer_business_name' => $_POST['payer_business_name'],
-                          'address_name' => $_POST['address_name'],
-                          'address_street' => $_POST['addrss_street'],
-                          'address_city' => $_POST['address_city'],
-                          'address_state' => $_POST['address_state'],
-                          'address_zip' => $_POST['address_zip'],
-                          'address_country' => $_POST['address_country'],
                           'payer_email' => $_POST['payer_email'],
                           'payer_id' => $_POST['payer_id'],
                           'business' => $_POST['business'],
                           'receiver_email' => $_POST['receiver_email'],
                           'receiver_id' => $_POST['receiver_id'],
-                          'num_cart_items' => $_POST['num_cart_items'],
-                          'mc_gross' => $_POST['mc_gross'],
-                          'mc_fee' => $_POST['mc_fee'],
-                          'settle_amount' => $_POST['settle_amount'],
-                          'settle_currency' => $_POST['settle_currency'],
-                          'exchange_rate' => $_POST['exchange_rate'],
                           'notify_version' => $_POST['notify_version'],
                           'verify_sign' => $_POST['verify_sign'],
                           'last_modified' => 'now()'
                          );
-    return $paypal_order;
+    if (isset($_POST['payer_business_name']) && $_POST['payer_business_name'] != '') $sql_data_array = array_merge($sql_data_array, 
+                    array('payer_business_name' => $_POST['payer_business_name']));
+    if (isset($_POST['address_name']) && $_POST['address_name'] != '') $sql_data_array = array_merge($sql_data_array, 
+                    array('address_name' => $_POST['address_name'],
+                          'address_street' => $_POST['addrss_street'],
+                          'address_city' => $_POST['address_city'],
+                          'address_state' => $_POST['address_state'],
+                          'address_zip' => $_POST['address_zip'],
+                          'address_country' => $_POST['address_country']));
+    if (isset($_POST['reason_code']) && $_POST['reason_code'] != '') $sql_data_array = array_merge($sql_data_array, array('reason_code' => $_POST['reason_code']));
+    if (isset($_POST['invoice']) && $_POST['invoice'] != '') $sql_data_array = array_merge($sql_data_array, array('invoice' => $_POST['invoice']));
+    if (isset($_POST['mc_gross']) && $_POST['mc_gross'] > 0) $sql_data_array = array_merge($sql_data_array, array('mc_gross' => $_POST['mc_gross']));
+    if (isset($_POST['mc_fee']) && $_POST['mc_fee'] > 0) $sql_data_array = array_merge($sql_data_array, array('mc_fee' => $_POST['mc_fee']));
+    if (isset($_POST['settle_amount']) && $_POST['settle_amount'] > 0) $sql_data_array = array_merge($sql_data_array, array('settle_amount' => $_POST['settle_amount']));
+    if (isset($_POST['first_name']) && $_POST['first_name'] != '') $sql_data_array = array_merge($sql_data_array, array('first_name' => $_POST['first_name']));
+    if (isset($_POST['last_name']) && $_POST['last_name'] != '') $sql_data_array = array_merge($sql_data_array, array('last_name' => $_POST['last_name']));
+    if (isset($_POST['mc_currency']) && $_POST['mc_currency'] != '') $sql_data_array = array_merge($sql_data_array, array('mc_currency' => $_POST['mc_currency']));
+    if (isset($_POST['settle_currency']) && $_POST['settle_currency'] != '') $sql_data_array = array_merge($sql_data_array, array('settle_currency' => $_POST['settle_currency']));
+    if (isset($_POST['num_cart_items']) && $_POST['num_cart_items'] > 0) $sql_data_array = array_merge($sql_data_array, array('num_cart_items' => $_POST['num_cart_items']));
+    if (isset($_POST['exchange_rate']) && $_POST['exchange_rate'] > 0) $sql_data_array = array_merge($sql_data_array, array('exchange_rate' => $_POST['exchange_rate']));
+    return $sql_data_array;
   }
 /**
  * simulator
@@ -357,24 +370,14 @@
     }
   }
 /**
- * Debug logging
- */
-  function ipn_add_error_log($message, $paypal_instance_id = '') {
-    if ($paypal_instance_id == '') $paypal_instance_id = date('mdYGi');
-    $fp = @fopen('includes/modules/payment/paypal/logs/ipn_' . $paypal_instance_id . '.log', 'a');
-    @fwrite($fp, date('M d Y G:i') . ' -- ' . $message . "\n\n");
-    @fclose($fp);
-    // if (MODULE_PAYMENT_PAYPAL_TESTING == 'Test') echo date('d M Y G:i') . ' -- ' . $message . "\n";
-  }
-/**
  * Debug to file
  */
   function ipn_fopen($filename) {
     $response = '';
-    $fp = fopen($filename,'rb');
+    $fp = @fopen($filename,'rb');
     if ($fp) {
       $response = getRequestBodyContents($fp);
-      @fclose($fp);
+      fclose($fp);
     }
     return $response;
   }
@@ -540,15 +543,214 @@
     }
   }
 
-if (!function_exists('replace_accents')) {
-/**
- * strip out accented characters to reasonable approximations of english equivalents
- */
-  function replace_accents($s) {
-    $s = htmlentities($s);
-    $s = preg_replace ('/&([a-zA-Z])(uml|acute|elig|grave|circ|tilde|cedil|ring|quest|slash|caron);/', '$1', $s);
-    $s = html_entity_decode($s);
-    return $s;
+  /**
+   * Prepare subtotal and line-item detail content to send to PayPal
+   */
+  function ipn_getLineItemDetails() {
+error_reporting(E_ALL);
+    global $order, $currencies, $order_totals, $order_total_modules;
+    $optionsST = array();
+    $optionsLI = array();
+    $onetimeSum = 0;
+    $onetimeTax = 0;
+    $creditsApplied = 0;
+    $creditsTax_applied = 0;
+    $sumOfLineItems = 0;
+    $sumOfLineTax = 0;
+
+    // prepare subtotals
+    $optionsST['handling'] = 0;
+    for ($i=0, $n=sizeof($order_totals); $i<$n; $i++) {
+      if ($order_totals[$i]['code'] == 'ot_subtotal') $optionsST['subtotal'] = round($order_totals[$i]['value'],2);
+      if ($order_totals[$i]['code'] == 'ot_tax')      $optionsST['tax_cart'] = round($order_totals[$i]['value'],2);
+      if ($order_totals[$i]['code'] == 'ot_shipping') $optionsST['shipping'] = round($order_totals[$i]['value'],2);
+      if ($order_totals[$i]['code'] == 'ot_total')    $optionsST['amount']   = round($order_totals[$i]['value'],2);
+      global $$order_totals[$i]['code'];
+      if (isset($$order_totals[$i]['code']->credit_class) && $$order_totals[$i]['code']->credit_class == true) $creditsApplied += round($order_totals[$i]['value'],2);
+      // treat all other OT's as if they're related to handling fees
+      if (!in_array($order_totals[$i]['code'], array('ot_total','ot_subtotal','ot_tax','ot_shipping')) 
+          && !(isset($$order_totals[$i]['code']->credit_class) && $$order_totals[$i]['code']->credit_class == true)) {
+          $optionsST['handling'] += $order_totals[$i]['value'];
+      }
+    }
+
+    // Move shipping tax amount from Tax subtotal into Shipping subtotal for submission to PayPal
+    $module = substr($_SESSION['shipping']['id'], 0, strpos($_SESSION['shipping']['id'], '_'));
+    if (zen_not_null($order->info['shipping_method'])) {
+      if ($GLOBALS[$module]->tax_class > 0) {
+        $shipping_tax_basis = (!isset($GLOBALS[$module]->tax_basis)) ? STORE_SHIPPING_TAX_BASIS : $GLOBALS[$module]->tax_basis;
+        $shippingOnBilling = zen_get_tax_rate($GLOBALS[$module]->tax_class, $order->billing['country']['id'], $order->billing['zone_id']);
+        $shippingOnDelivery = zen_get_tax_rate($GLOBALS[$module]->tax_class, $order->delivery['country']['id'], $order->delivery['zone_id']);
+        if ($shipping_tax_basis == 'Billing') {
+          $shipping_tax = $shippingOnBilling;
+        } elseif ($shipping_tax_basis == 'Shipping') {
+          $shipping_tax = $shippingOnDelivery;
+        } else {
+          if (STORE_ZONE == $order->billing['zone_id']) {
+            $shipping_tax = $shippingOnBilling;
+          } elseif (STORE_ZONE == $order->delivery['zone_id']) {
+            $shipping_tax = $shippingOnDelivery;
+          } else {
+            $shipping_tax = 0;
+          }
+        }
+        $taxAdjustmentForShipping = zen_calculate_tax($order->info['shipping_cost'], $shipping_tax);
+        $optionsST['shipping'] += $taxAdjustmentForShipping;
+        $optionsST['tax_cart'] -= $taxAdjustmentForShipping;
+      }
+    }
+ipn_logging('DEBUG Round 1', 'Subtotal Info:' . "\n" . print_r($optionsST, true));
+
+    // loop thru all products to display quantity and price. Appends *** if out-of-stock.
+    for ($i=0, $n=sizeof($order->products), $k=1; $i<$n; $i++, $k++) {
+      $optionsLI["item_number_$k"] = $order->products[$i]['model'];
+      $optionsLI["quantity_$k"]    = (int)$order->products[$i]['qty'];
+      $optionsLI["item_name_$k"]   = $order->products[$i]['name'];
+      $optionsLI["item_name_$k"]  .= (zen_get_products_stock($order->products[$i]['id']) - $order->products[$i]['qty'] < 0 ? STOCK_MARK_PRODUCT_OUT_OF_STOCK : '');
+
+      // if there are attributes, loop thru them and add to description
+      if (isset($order->products[$i]['attributes']) && sizeof($order->products[$i]['attributes']) > 0 ) {
+        for ($j=0, $n2=sizeof($order->products[$i]['attributes']); $j<$n2; $j++) {
+          $optionsLI["item_name_$k"] .= "\n " . $order->products[$i]['attributes'][$j]['option'] . 
+                                        ': ' . $order->products[$i]['attributes'][$j]['value'];
+        } // end loop
+      } // endif attribute-info
+
+      $optionsLI["amount_$k"] = $order->products[$i]['final_price'];
+      $optionsLI["tax_$k"]    = zen_calculate_tax($order->products[$i]['final_price'], $order->products[$i]['tax']);
+      $optionsLI["shipping_$k"] = 0;
+
+      // track one-time charges
+      if ($order->products[$i]['onetime_charges'] != 0 ) {
+        $onetimeSum += $order->products[$i]['onetime_charges'];
+        $onetimeTax += zen_calculate_tax($order->products[$i]['onetime_charges'], $order->products[$i]['tax']);
+      }
+
+      // Replace & and = with * if found. 
+      $optionsLI["item_name_$k"] = str_replace(array('&','='), '*', $optionsLI["item_name_$k"]);
+      $optionsLI["item_name_$k"] = zen_clean_html($optionsLI["item_name_$k"], 'strong');
+      $optionsLI["item_name_$k"] = substr($optionsLI["item_name_$k"], 0, 127);
+
+      // reformat properly
+      $optionsLI["item_number_$k"] = substr($optionsLI["item_number_$k"], 0, 127);
+
+    }  // end for loopthru all products
+
+    if ($onetimeSum > 0) {
+      $i++; $k++;
+      $optionsLI["item_number_$k"] = $k;
+      $optionsLI["item_name_$k"]   = 'One-Time Charges';
+      $optionsLI["amount_$k"]      = $onetimeSum;
+      $optionsLI["tax_$k"]         = $onetimeTax;
+      $optionsLI["quantity_$k"]    = 1;
+    }
+ipn_logging('DEBUG Round 2', 'Line Item Info:' . "\n" . print_r($optionsLI, true));
+
+    // handle discounts such as gift certificates and coupons
+    if ($creditsApplied > 0) {
+      $optionsST['handling'] -= $creditsApplied;
+    }
+
+    // add all one-time charges
+    $optionsST['subtotal'] += $onetimeSum;
+
+    //ensure things are not negative and not carrying any bad precision
+    $optionsST['handling'] = abs(strval($optionsST['handling']));
+
+    // subtotals have to add up to AMT
+    // Thus, if there is a discrepancy, make adjustment to HANDLINGAMT:
+    $st = $optionsST['subtotal'] + $optionsST['tax_cart'] + $optionsST['shipping'] + $optionsST['handling'];
+    if ($st != $optionsST['amount']) $optionsST['handling'] += ($optionsST['amount'] - $st);
+
+
+
+    // Since the PayPal spec cannot handle mathematically mismatched values caused by one-time charges,
+    // must drop line-item details if any one-time charges apply to this order:
+    // And, if there are any discounts in this order, do NOT supply line-item details
+    if ($onetimeSum > 0) $optionsLI = array();
+
+
+    // Do sanity check -- if any of the line-item subtotal math doesn't add up properly, skip line-item details,
+    // so that the order can go through even though PayPal isn't being flexible to handle Zen Cart's diversity
+    $optionsLI['num_cart_items'] = 0;
+    for ($j=1; $j<$k; $j++) {
+      $itemAMT = $optionsLI["amount_$j"];
+      $itemTAX = $optionsLI["tax_$j"];
+      $itemQTY = $optionsLI["quantity_$j"];
+      $sumOfLineItems += ($itemQTY * $itemAMT);
+      $sumOfLineTax += round(($itemQTY * $itemTAX),2);
+      $optionsLI['num_cart_items']++;
+    }
+
+    if ((float)strval($optionsST['subtotal']) != (float)strval($sumOfLineItems)) {
+      $optionsLI = array();
+      ipn_logging('getLineItemDetails 1: Order Subtotal does not match sum of line-item prices. Line-item-details skipped.' . "\n" . (float)$optionsST['subtotal'] . ' ' . (float)$sumOfLineItems);
+      //die('ITEMAMT != $sumOfLineItems ' . $optionsST['ITEMAMT'] . ' ' . $sumOfLineItems);
+    }
+    if ((float)strval($optionsST['tax_cart']) != (float)strval($sumOfLineTax)) {
+      for ($i=0, $n=sizeof($order->products), $k=1; $i<$n; $i++, $k++) {
+        $optionsLI["tax_$k"] = 0;
+      }
+      $optionsLI["tax_1"] = $optionsST["tax_cart"];
+      ipn_logging('getLineItemDetails 2: Tax Subtotal did not match sum of taxes for line-items. Line-item taxes skipped.' . "\n" . $optionsST['tax_cart'] . ' ' . $sumOfLineTax);
+      //die('TAXAMT != $sumofLineTax ' . $optionsST['TAXAMT'] . ' ' . $sumOfLineTax);
+    }
+
+    // ensure all numbers are non-negative
+    // tidy up all values so that they comply with proper format (number_format(xxxx,2) for PayPal US use )
+    if (is_array($optionsST)) foreach ($optionsST as $key=>$value) {
+      $optionsST[$key] = number_format(abs(strval($value)), 2);
+    }
+    if (is_array($optionsLI)) foreach ($optionsLI as $key=>$value) {
+      if (strstr($key, 'amount')) $optionsLI[$key] = number_format(abs(strval($value)), 2);
+    }
+
+    ipn_logging('getLineItemDetails 3: IPN LineItemDetails: ' . "\n" . ($creditsApplied ? 'Credits apply to this order, so all line-item details are NOT being submitted. Thus, the following data is REDUNDANT and probably VERY INACCURATE' . "\n" : '') . 'Details:' . print_r(array_merge($optionsST, $optionsLI), true) . "\n\n" . 'DEFAULT_CURRENCY = ' . DEFAULT_CURRENCY  . "\nSESSION['currency'] = " . $_SESSION['currency'] . "\n" . "order->info['currency'] = " . $order->info['currency'] . "\n\$currencies->currencies[\$_SESSION['currency']]['value'] = " . $currencies->currencies[$_SESSION['currency']]['value'] . "\n" . print_r($currencies, true));
+
+    // if not default currency, do not send subtotals or line-item details
+    if (DEFAULT_CURRENCY != $order->info['currency']) {
+      ipn_logging('getLineItemDetails 4: Not using default currency. Thus, no line-item details can be submitted.');
+      return array();
+    }
+    if ($currencies->currencies[$_SESSION['currency']]['value'] != 1) {
+      ipn_logging('getLineItemDetails 5: currency val not equal to 1.0000 - cannot proceed without coping with currency conversions. Aborting line-item details.');
+      return array();
+    }
+
+    // if there are any discounts in this order, do not supply subtotals or line-item details
+    if (strval($creditsApplied) > 0) return array();
+    //$this->zcLog('getLineItemDetails 6', 'no credits - okay');
+
+    // if subtotals are not adding up correctly, then skip sending any line-item or subtotal details to PayPal
+    $st = round(strval($optionsST['subtotal'] + $optionsST['tax_cart'] + $optionsST['shipping'] + $optionsST['handling']),2);
+    $stDiff = strval($optionsST['amount'] - $st);
+    $stDiffRounded = strval(abs($st) - abs(round($optionsST['amount'],2)));
+
+
+    ipn_logging('getLineItemDetails 7: checking subtotals... '. "\nitemamt: " . $optionsST['subtotal'] . "\ntaxamt: " . $optionsST['tax_cart'] . "\nshippingamt: " . $optionsST['shipping'] . "\nhandlingamt: " . $optionsST['handling'] . "\n-------------------\nsubtotal: " . number_format($st, 2) . "\namount: " . $optionsST['amount'] . "\n-------------------\ndifference: " . $stDiff . '  (abs+rounded: ' . $stDiffRounded . ')');
+
+    if ( $stDiffRounded != 0) return array(); //die('bad subtotals'); //return array();
+    ipn_logging('getLineItemDetails 8: subtotals balance - okay');
+
+    if (abs($optionsST['handling']) == 0) unset($optionsST['handling']);
+
+    // Send Subtotal and LineItem results back to be submitted to PayPal
+    return array_merge($optionsST, $optionsLI);
   }
-}
+
+/**
+ * Debug logging
+ */
+  function ipn_logging($stage, $message = '') {
+    ipn_add_error_log($stage . ($message != '' ? ': ' . $message : ''));
+  }
+  function ipn_add_error_log($message, $paypal_instance_id = '') {
+    if ($paypal_instance_id == '') $paypal_instance_id = date('mdYGi');
+    $fp = @fopen('includes/modules/payment/paypal/logs/ipn_' . $paypal_instance_id . (substr($message, 0, 3) == 'PDT' ? '_PDT' : '') . '.log', 'a');
+    if ($fp) {
+      fwrite($fp, date('M d Y G:i') . ' -- ' . $message . "\n\n");
+      fclose($fp);
+    }
+  }
+
 ?>

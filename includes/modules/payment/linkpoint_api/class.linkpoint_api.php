@@ -2,7 +2,7 @@
 /**
  * @package linkpoint_api_payment_module
  * @copyright Copyright 2003 LinkPoint International, Inc. All Rights Reserved.
- * @version (within Zen Cart SVN) $Id: class.linkpoint_api.php 5423 2006-12-28 10:59:25Z drbyte $
+ * @version (within Zen Cart SVN) $Id: class.linkpoint_api.php 7279 2007-10-24 21:48:38Z drbyte $
  */
 /* lphp.php  LINKPOINT PHP MODULE */
 
@@ -188,6 +188,13 @@ class lphp
 			}
 		}
 
+// for logging purposes:
+		$this->sendData = "";
+		while (list($key, $value) = each($data)) {
+			if ($key != 'cardnumber' && $key != 'cvmvalue')	$this->sendData .= "$key = " . (is_array($value) ? print_r($value, true) : $value) . "\n";
+			if ($key == 'cardnumber' || $key == 'cvmvalue')	$this->sendData .= "$key = ******\n";
+		}
+
 		if (isset($data["xml"])) // if XML string is passed in, we'll use it
 		{
 			$using_xml = 1;
@@ -207,6 +214,7 @@ class lphp
 				echo "\nsending xml string:\n$xml\n\n";
 				$this->xmlString .= "\nsending xml string:\n$xml\n\n";
 		}
+		$this->xmlString .= "\nsending xml string:\n$xml\n\n";
 
 		// set up transaction variables
 		$key = $data["keyfile"];
@@ -268,8 +276,8 @@ class lphp
 						echo "<br>server responds:<br>" . htmlspecialchars($result) . "<br><br>";
 					else						// non html output
 						echo "\nserver responds:\n $result\n\n";
-						$this->serverResponse .= "\nserver responds:\n $result\n\n";
 				}
+						$this->serverResponse .= "\nserver responds:\n $result\n\n";
 
 				if ($using_xml == 1)
 				{
@@ -320,8 +328,8 @@ class lphp
         echo "<br>server responds:<br>" . htmlspecialchars(curl_error($ch)). ' <br>ErrNo#: ' . curl_errno($ch) . "<br><br>";
         else
         echo "\nserver responds:\n". curl_error($ch). " \nErrNo:" . curl_errno($ch)."\n\n";
-				$this->commError = "\nCommunication Result:\n". curl_error($ch). " \nErrNo: " . curl_errno($ch)."\n\n";
       }
+			$this->commError = (curl_errno($ch) != 0 ? "Communication Result: " . curl_errno($ch) . ' - ' . curl_error($ch) : '');
 			curl_close($ch);
 			if (strlen($result) < 2)    # no response
 			{

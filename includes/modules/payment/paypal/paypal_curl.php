@@ -4,13 +4,12 @@
  *
  * @package paymentMethod
  * @copyright Copyright 2003-2007 Zen Cart Development Team
- * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: paypal_curl.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: paypal_curl.php 7558 2007-11-30 17:54:43Z drbyte $
  */
 
 /**
- * PayPal NVP (v2.3) and Payflow Pro (v4 HTTP API) implementation via cURL.
+ * PayPal NVP (v3.2) and Payflow Pro (v4 HTTP API) implementation via cURL.
  */
 class paypal_curl extends base {
 
@@ -36,7 +35,7 @@ class paypal_curl extends base {
    *
    * @var string $_logFile
    */
-  var $_logDir = '/tmp';
+  var $_logDir = 'logs';
 
   /**
    * Debug or production?
@@ -53,7 +52,7 @@ class paypal_curl extends base {
    */
   var $_curlOptions = array(CURLOPT_HEADER => 0,
                             CURLOPT_RETURNTRANSFER => 1,
-                            CURLOPT_TIMEOUT => 300,
+                            CURLOPT_TIMEOUT => 60,
                             CURLOPT_FOLLOWLOCATION => 0,
                             CURLOPT_SSL_VERIFYPEER => 0,
                             CURLOPT_SSL_VERIFYHOST => 2,
@@ -69,7 +68,6 @@ class paypal_curl extends base {
   var $_vendor;
   var $_user;
   var $_pwd;
-  var $_certificationId;
   var $_version;
   var $_signature;
 
@@ -120,7 +118,9 @@ class paypal_curl extends base {
     if ($this->_mode == 'payflow') {
       $values = array_merge($values, array('ACTION'  => 'S', /* ACTION=S denotes SetExpressCheckout */
                                            'TENDER'  => 'P',
-                                           'TRXTYPE' => $this->_trxtype));
+                                           'TRXTYPE' => $this->_trxtype,
+                                           'RETURNURL' => $returnUrl,
+                                           'CANCELURL' => $cancelUrl));
     } elseif ($this->_mode == 'nvp') {
       if (!isset($values['PAYMENTACTION'])) $values['PAYMENTACTION'] = ($this->_trxtype == 'S' ? 'Sale' : 'Authorization');
     }
@@ -146,6 +146,8 @@ class paypal_curl extends base {
       $values = array_merge($values, array('ACTION'  => 'G', /* ACTION=G denotes GetExpressCheckoutDetails */
                                            'TENDER'  => 'P',
                                            'TRXTYPE' => $this->_trxtype));
+    } elseif ($this->_mode == 'nvp') {
+      $values = array_merge($values, array('REQBILLINGADDRESS' => '1'));
     }
     return $this->_request($values, 'GetExpressCheckoutDetails');
   }
@@ -197,7 +199,7 @@ class paypal_curl extends base {
       }
     } elseif ($this->_mode == 'nvp') {
       $values = array_merge($values, $nvp);
-      $values['CREDITCARDTYPE'] = $cc_type;
+      $values['CREDITCARDTYPE'] = ($cc_type == 'American Express') ? 'Amex' : $cc_type;
       $values['FIRSTNAME'] = $fname;
       $values['LASTNAME'] = $lname;
       $values['NOTIFYURL'] = urlencode(zen_href_link('ipn_main_handler.php', '', 'SSL',false,false,true));
@@ -365,6 +367,9 @@ class paypal_curl extends base {
     if ($this->_mode == 'nvp') {
       $values['METHOD'] = $operation;
     }
+    if ($this->_mode == 'payflow') {
+      $values['REQUEST_ID'] = time();
+    }
     // convert currency code to proper key name for nvp
     if ($this->_mode == 'nvp') {
       if (!isset($values['CURRENCYCODE']) && isset($values['CURRENCY'])) {
@@ -382,13 +387,11 @@ class paypal_curl extends base {
     $headers[] = 'X-VPS-Timeout: 45';
     $headers[] = "X-VPS-VIT-Client-Type: PHP/cURL";
     if ($this->_mode == 'payflow') {
-      $headers[] = 'X-VPS-VIT-Client-Certification-Id: ' . $this->_certificationId;
-      $headers[] = 'X-VPS-Request-ID: ' . $requestId;
       $headers[] = 'X-VPS-VIT-Integration-Product: PHP::Zen Cart - Payflow Pro';
     } elseif ($this->_mode == 'nvp') {
       $headers[] = 'X-VPS-VIT-Integration-Product: PHP::Zen Cart - WPP-NVP';
     }
-    $headers[] = 'X-VPS-VIT-Integration-Version: 0.1';
+    $headers[] = 'X-VPS-VIT-Integration-Version: 1.3.8a';
     $this->lastHeaders = $headers;
 
     if (PAYPAL_DEV_MODE == 'true') $this->log('_request - breakpoint 2 - server: ' . $this->_endpoints[$this->_server] . "\nheaders: " . print_r($headers, true) . "\nvalues: " . print_r($values, true));
@@ -397,6 +400,7 @@ class paypal_curl extends base {
     curl_setopt($ch, CURLOPT_URL, $this->_endpoints[$this->_server]);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $this->_buildNameValueList($values));
+    if (PAYPAL_DEV_MODE == 'true') $this->log('_request - breakpoint 2.5 - postfields: ' . $this->_buildNameValueList($values));
 
     foreach ($this->_curlOptions as $name => $value) {
       curl_setopt($ch, $name, $value);
@@ -408,6 +412,9 @@ class paypal_curl extends base {
 
     $commInfo = @curl_getinfo($ch);
     curl_close($ch);
+
+    $rawdata = "CURL raw data:\n" . $response . "CURL RESULTS: (" . $commErrNo . ') ' . $commError . "\n" . print_r($commInfo, true) . "\nEOF";
+    if (PAYPAL_DEV_MODE == 'true') $this->log($rawdata, 'RAW'.microtime());
 
     $errors = ($commErrNo != 0 ? "\n(" . $commErrNo . ') ' . $commError : '');
     $response .= '&CURL_ERRORS=' . ($commErrNo != 0 ? urlencode('(' . $commErrNo . ') ' . $commError) : '') ;
@@ -424,14 +431,6 @@ class paypal_curl extends base {
     } else {
       return false;
     }
-
-    // The nice thing about the v4 API Payflow protocol is that if you *don't*
-    // get a $response, you can simply re-submit the transaction
-    // *using the same REQUEST_ID* until you *do* get a response
-    // -- every time Payflow gets a transaction with the same
-    // REQUEST_ID, it will not process a new transactions, but
-    // simply return the same results, with a DUPLICATE=1
-    // parameter appended.
   }
 
   /**
@@ -451,7 +450,7 @@ class paypal_curl extends base {
     // Add the parameters that are always sent.
     $commpairs = array();
     // generic:
-    if ($this->_user != '')      $commpairs['USER'] = trim($this->_user);
+    if ($this->_user != '')      $commpairs['USER'] = str_replace('+', '%2B', trim($this->_user));
     if ($this->_pwd != '')       $commpairs['PWD'] = trim($this->_pwd);
     // PRO2.0 options:
     if ($this->_partner != '')   $commpairs['PARTNER'] = trim($this->_partner);
@@ -467,7 +466,7 @@ class paypal_curl extends base {
     $string = array();
     foreach ($pairs as $name => $value) {
       if (preg_match('/[^A-Z_0-9]/', $name)) {
-        $this->log('_buildNameValueList - datacheck - ABORTING - preg_match found invalid submission key: ' . $name . ' (' . $value . ')');
+        if (PAYPAL_DEV_MODE == 'true') $this->log('_buildNameValueList - datacheck - ABORTING - preg_match found invalid submission key: ' . $name . ' (' . $value . ')');
         return false;
       }
       // remove quotation marks
@@ -475,7 +474,7 @@ class paypal_curl extends base {
       // if the value contains a & or = symbol, handle it differently
       if (($this->_mode == 'payflow') && (strpos($value, '&') !== false || strpos($value, '=') !== false)) {
         $string[] = $name . '[' . strlen($value) . ']=' . $value;
-        $this->log('_buildNameValueList - datacheck - adding braces and string count to: ' . $value . ' (' . $name . ')');
+        if (PAYPAL_DEV_MODE == 'true') $this->log('_buildNameValueList - datacheck - adding braces and string count to: ' . $value . ' (' . $name . ')');
       } else {
         if ($this->_mode == 'nvp' && ((strstr($name, 'SHIPTO') || strstr($name, 'L_NAME')) && (strpos($value, '&') !== false || strpos($value, '=') !== false))) $value = urlencode($value);
         $string[] = $name . '=' . $value;
@@ -492,12 +491,13 @@ class paypal_curl extends base {
    * as they should not be present.
    */
   function _parseNameValueList($string) {
+    $string = str_replace('&amp;', '|', $string);
     $pairs = explode('&', str_replace(array("\r\n","\n"), '', $string));
     //$this->log('['.$string . "]\n\n[" . print_r($pairs, true) .']');
     $values = array();
     foreach ($pairs as $pair) {
-      list($name, $value) = explode('=', $pair);
-      $values[$name] = $value;
+      list($name, $value) = explode('=', $pair, 2);
+      $values[$name] = str_replace('|', '&amp;', $value);
     }
     return $values;
   }
@@ -522,9 +522,9 @@ class paypal_curl extends base {
       $message .= 'Request Parameters: {' . $operation . '} ' . "\n" . urldecode($this->_sanitizeLog($this->_parseNameValueList($this->lastParamList))) . "\n\n";
       $message .= 'Response: ' . "\n" . urldecode($this->_sanitizeLog($values)) . $errors;
       $this->log($message, $token);
-      // extra debug email: ///
+      // extra debug email: //
       if (MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log and Email') {
-        zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, 'PayPal Debug log - ' . $operation, $message, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS);
+        zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, 'PayPal Debug log - ' . $operation, $message, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>nl2br($message)), 'debug');
       }
 
     case PEAR_LOG_INFO:
@@ -555,7 +555,7 @@ class paypal_curl extends base {
    * @param mixed $log  The log to sanitize.
    * @return string  The sanitized (and string-ified, if necessary) log.
    */
-  function _sanitizeLog($log) {
+  function _sanitizeLog($log, $allsensitive = false) {
     if (is_array($log)) {
       foreach (array_keys($log) as $key) {
         switch (strtolower($key)) {
@@ -572,6 +572,7 @@ class paypal_curl extends base {
             unset($log[$key]);
             break;
         }
+        if ($allsensitive && in_array($key, array('BUTTONSOURCE', 'VERSION', 'SIGNATURE', 'USER', 'VENDOR', 'PARTNER', 'PWD', 'VERBOSITY'))) unset($log[$key]);
       }
       return print_r($log, true);
     } else {
@@ -585,10 +586,11 @@ class paypal_curl extends base {
     if ($token == '') $token = $_SESSION['paypal_ec_token'];
     if ($token == '') $token = time();
     $token .= $tokenHash;
-    $file = $this->_logDir . '/' . 'Paypal_Debug_' . $token . '.log';
-    $fp = @fopen($file, 'a');
-    @fwrite($fp, $message . "\n\n");
-    @fclose($fp);
+    $file = $this->_logDir . '/' . 'Paypal_CURL_' . $token . '.log';
+    if ($fp = @fopen($file, 'a')) {
+      fwrite($fp, $message . "\n\n");
+      fclose($fp);
+    }
   }
   /**
    * Return the current time including microseconds.

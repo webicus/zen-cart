@@ -6,7 +6,7 @@
  * @copyright Copyright 2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: ipncheck.php 6541 2007-07-01 19:43:02Z drbyte $
+ * @version $Id: ipncheck.php 6321 2007-05-13 14:28:17Z drbyte $
  */
 
 

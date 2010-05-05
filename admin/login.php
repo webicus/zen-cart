@@ -17,7 +17,7 @@
 // | to obtain it through the world-wide-web, please send a note to       |
 // | license@zen-cart.com so we can mail you a copy immediately.          |
 // +----------------------------------------------------------------------+
-//  $Id: login.php 6525 2007-06-25 21:49:57Z drbyte $
+//  $Id: login.php 6522 2007-06-20 23:34:31Z wilt $
 //
 
   require('includes/application_top.php');
@@ -28,6 +28,10 @@
     $admin_pass = zen_db_prepare_input($_POST['admin_pass']);
     $sql = "select admin_id, admin_name, admin_pass from " . TABLE_ADMIN . " where admin_name = '" . zen_db_input($admin_name) . "'";
     $result = $db->Execute($sql);
+    if ((!isset($_SESSION['securityToken']) || !isset($_POST['securityToken'])) || ($_SESSION['securityToken'] !== $_POST['securityToken'])) {
+     $message = true;
+      $pass_message = ERROR_SECURITY_ERROR;      
+    }
     if (!($admin_name == $result->fields['admin_name'])) {
       $message = true;
       $pass_message = ERROR_WRONG_LOGIN;
@@ -63,6 +67,7 @@
 <input style="float: left" type="password" id="admin_pass" name="admin_pass" value="<?php echo zen_output_string($admin_pass); ?>" />
 <br class="clearBoth" />
     <?php echo $pass_message; ?>
+    <input type="hidden" name="securityToken" value="<?php echo $_SESSION['securityToken']; ?>">
     <input type="submit" name="submit" class="button" value="Login" />
     <?php echo '<a style="float: right;" href="' . zen_href_link(FILENAME_PASSWORD_FORGOTTEN, '', 'SSL') . '">' . TEXT_PASSWORD_FORGOTTEN . '</a>'; ?>
   </fieldset>
