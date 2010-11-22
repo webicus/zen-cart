@@ -1,30 +1,17 @@
 <?php
-//
-// +----------------------------------------------------------------------+
-// |zen-cart Open Source E-commerce                                       |
-// +----------------------------------------------------------------------+
-// | Copyright (c) 2003 The zen-cart developers                           |
-// |                                                                      |
-// | http://www.zen-cart.com/index.php                                    |
-// |                                                                      |
-// | Portions Copyright (c) 2003 osCommerce                               |
-// +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the GPL license,       |
-// | that is bundled with this package in the file LICENSE, and is        |
-// | available through the world-wide-web at the following url:           |
-// | http://www.zen-cart.com/license/2_0.txt.                             |
-// | If you did not receive a copy of the zen-cart license and are unable |
-// | to obtain it through the world-wide-web, please send a note to       |
-// | license@zen-cart.com so we can mail you a copy immediately.          |
-// +----------------------------------------------------------------------+
-//  $Id: option_name.php 1969 2005-09-13 06:57:21Z drbyte $
-//
+/**
+ * @package admin
+ * @copyright Copyright 2003-2010 Zen Cart Development Team
+ * @copyright Portions Copyright 2003 osCommerce
+ * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
+ * @version $Id: option_name.php 17832 2010-10-06 20:12:04Z drbyte $
+ */
 ?>
 <?php
   require('includes/application_top.php');
 
   // verify option names and values
-  $chk_option_names = $db->Execute("select * from " . TABLE_PRODUCTS_OPTIONS . " where language_id='" . $_SESSION['languages_id'] . "' limit 1");
+  $chk_option_names = $db->Execute("select * from " . TABLE_PRODUCTS_OPTIONS . " where language_id='" . (int)$_SESSION['languages_id'] . "' limit 1");
   if ($chk_option_names->RecordCount() < 1) {
     $messageStack->add_session(ERROR_DEFINE_OPTION_NAMES, 'caution');
     zen_redirect(zen_href_link(FILENAME_OPTIONS_NAME_MANAGER));
@@ -42,17 +29,17 @@
     $languages_array[] = array('id' => $languages[$i]['id'],
                                'text' => $languages[$i]['name']);
   }
-  if (!$_GET['lng_exists']==true) $_GET['lng_id'] = $_SESSION['languages_id'];
+  if (!$_GET['lng_exists']==true) $_GET['lng_id'] = (int)$_SESSION['languages_id'];
 
 
 if ($_GET['action'] == "update_sort_order") {
     foreach($_POST['products_options_sort_order'] as $id => $new_sort_order) {
       $row++;
-      $db->Execute("UPDATE " . TABLE_PRODUCTS_OPTIONS . " set products_options_sort_order= " . $_POST['products_options_sort_order'][$id] . " where products_options_id= $id and language_id=" . $_GET['lng_id']);
+      $db->Execute("UPDATE " . TABLE_PRODUCTS_OPTIONS . " set products_options_sort_order= " . (int)$_POST['products_options_sort_order'][$id] . " where products_options_id=" . (int)$id . " and language_id=" . (int)$_GET['lng_id']);
     }
-        $messageStack->add_session(SUCCESS_OPTION_SORT_ORDER, 'success');
-        $_GET['action']='';
-        zen_redirect(zen_href_link(FILENAME_PRODUCTS_OPTIONS_NAME, 'options_id=' . $options_id . '&lng_id=' . $_GET['lng_id']));
+    $messageStack->add_session(SUCCESS_OPTION_SORT_ORDER, 'success');
+    $_GET['action']='';
+    zen_redirect(zen_href_link(FILENAME_PRODUCTS_OPTIONS_NAME, 'options_id=' . (int)$options_id . '&lng_id=' . (int)$_GET['lng_id']));
 }
 
 ?>
@@ -110,8 +97,7 @@ if ($_GET['action'] == "update_sort_order") {
               <td colspan="<?php echo ($_GET['lng_id']==$_SESSION['languages_id'] ? '2' : '5'); ?>" class="dataTableHeadingContent" align="center" valign="top"><?php echo  TEXT_SELECTED_LANGUAGE . zen_get_language_icon($_GET['lng_id']); ?>&nbsp;&nbsp;&nbsp;<?php echo zen_draw_pull_down_menu('lng_id', $languages_array, $_GET['lng_id'], 'onChange="this.form.submit();"'); ?></td>
               </form>
             </tr>
-
-            <form name = "update" action="<?php echo zen_href_link(FILENAME_PRODUCTS_OPTIONS_NAME, 'action=update_sort_order&lng_id=' . $_GET['lng_id'], 'NONSSL'); ?>"' method="post"
+            <?php echo zen_draw_form('update', FILENAME_PRODUCTS_OPTIONS_NAME, 'action=update_sort_order&lng_id=' . $_GET['lng_id'], 'post'); ?>
 <?php
     echo '<tr class="dataTableHeadingRow">';
 

@@ -1,10 +1,10 @@
 <?php
 /**
  * @package admin
- * @copyright Copyright 2003-2007 Zen Cart Development Team
+ * @copyright Copyright 2003-2009 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: store_manager.php 6019 2007-03-16 20:34:05Z drbyte $
+ * @version $Id: store_manager.php 17906 2010-10-09 21:52:17Z wilt $
  */
 
   require('includes/application_top.php');
@@ -97,16 +97,35 @@
 
     case ('optimize_db'):
     // clean out unused space in database
-    $sql = "SHOW TABLE STATUS FROM " . DB_DATABASE;
+    $sql = "SHOW TABLE STATUS FROM `" . DB_DATABASE ."`";
     $tables = $db->Execute($sql);
     while(!$tables->EOF) {
-      $db->Execute("OPTIMIZE TABLE " . $tables->fields['Name']);
+      $db->Execute("OPTIMIZE TABLE `" . $tables->fields['Name'] . "`");
       $i++;
       $tables->MoveNext();
     }
     $messageStack->add_session(SUCCESS_DB_OPTIMIZE . ' ' . $i, 'success');
     $action='';
     zen_redirect(zen_href_link(FILENAME_STORE_MANAGER));
+    break;
+
+// clean out old DEBUG logfiles
+    case 'clean_debug_files':
+      $purgeFolder = rtrim(DIR_FS_SQL_CACHE, '/');
+      $dir = dir($purgeFolder);
+      while ($file = $dir->read()) {
+        if ( ($file != '.') && ($file != '..') && substr($file, 0, 1) != '.') {
+          if (preg_match('/^(myDEBUG-|AIM_Debug_|SIM_Debug_|FirstData_Debug_|Linkpoint_Debug_|Paypal|paypal|ipn_|zcInstall).*\.log$/', $file)) {
+            if (is_writeable($purgeFolder . '/' . $file)) {
+              zen_remove($purgeFolder . '/' . $file);
+            }
+          }
+        }
+      }
+      $dir->close();
+      unset($dir);
+      $messageStack->add_session(SUCCESS_CLEAN_DEBUG_FILES, 'success');
+      zen_redirect(zen_href_link(FILENAME_STORE_MANAGER));
     break;
 
     case ('update_all_master_categories_id'):
@@ -469,6 +488,7 @@ if ($show_configuration_info == 'true') {
       <tr>
         <td colspan="2"><br /><table border="0" cellspacing="0" cellpadding="2">
           <tr><form name = "update_counter" action="<?php echo zen_href_link(FILENAME_STORE_MANAGER, 'action=update_counter', 'NONSSL'); ?>" method="post">
+          <?php echo zen_draw_hidden_field('securityToken', $_SESSION['securityToken']); ?>
             <td class="main" align="left" valign="top"><?php echo TEXT_INFO_COUNTER_UPDATE; ?></td>
             <td class="main" align="left" valign="bottom"><?php echo zen_draw_input_field('new_counter'); ?></td>
             <td class="main" align="right" valign="middle"><?php echo zen_image_submit('button_reset.gif', IMAGE_RESET); ?></td>
@@ -510,10 +530,11 @@ if ($show_configuration_info == 'true') {
       </tr>
 <!-- eof: reset all master_categories_id -->
 
-<!-- bof: resrt test order to new order number -->
+<!-- bof: reset test order to new order number -->
       <tr>
         <td colspan="2"><br /><table border="0" cellspacing="0" cellpadding="2">
           <tr><form name = "update_orders" action="<?php echo zen_href_link(FILENAME_STORE_MANAGER, 'action=update_orders_id', 'NONSSL'); ?>" method="post">
+          <?php echo zen_draw_hidden_field('securityToken', $_SESSION['securityToken']); ?>
             <td class="main" align="left" valign="top"><?php echo TEXT_ORDERS_ID_UPDATE; ?></td>
             <td class="main" align="left" valign="bottom">
               <?php echo TEXT_OLD_ORDERS_ID . '&nbsp;&nbsp;&nbsp;' . zen_draw_input_field('old_orders_id'); ?>
@@ -536,6 +557,7 @@ if ($show_configuration_info == 'true') {
           </tr>
 
           <tr><form name = "locate_configure_key" action="<?php echo zen_href_link(FILENAME_STORE_MANAGER, 'action=locate_configuration_key', 'NONSSL'); ?>" method="post">
+          <?php echo zen_draw_hidden_field('securityToken', $_SESSION['securityToken']); ?>
             <td class="main" align="left" valign="bottom"><?php echo '<strong>' . TEXT_CONFIGURATION_KEY . '</strong>' . '<br />' . zen_draw_input_field('configuration_key'); ?></td>
             <td class="main" align="center" valign="bottom"><?php echo zen_image_submit('button_search.gif', IMAGE_SEARCH); ?></td>
             <td class="main" width="60%">&nbsp;</td>
@@ -555,6 +577,7 @@ if ($show_configuration_info == 'true') {
           </tr>
 
           <tr><form name = "locate_configure" action="<?php echo zen_href_link(FILENAME_STORE_MANAGER, 'action=locate_configuration', 'NONSSL'); ?>" method="post">
+          <?php echo zen_draw_hidden_field('securityToken', $_SESSION['securityToken']); ?>
             <td class="main" align="left" valign="bottom"><?php echo '<strong>' . TEXT_CONFIGURATION_KEY_FILES . '</strong>' . '<br />' . zen_draw_input_field('configuration_key'); ?></td>
             <td class="main" align="left" valign="middle">
               <?php
@@ -590,6 +613,17 @@ if ($show_configuration_info == 'true') {
       </tr>
 <!-- eof: database table-optimize -->
 
+
+<!-- bof: clean_debug_files -->
+      <tr>
+        <td colspan="2"><br /><br /><table border="0" cellspacing="0" cellpadding="2">
+          <tr>
+            <td class="main" align="left" valign="top"><?php echo TEXT_INFO_PURGE_DEBUG_LOG_FILES; ?></td>
+            <td class="main" align="right" valign="middle"><?php echo zen_draw_form('clean_debug_files', FILENAME_STORE_MANAGER, 'action=clean_debug_files', 'post') . zen_image_submit('button_confirm.gif', IMAGE_UPDATE) . '</form>'; ?>
+          </tr>
+        </table></td>
+      </tr>
+<!-- eof: clean_debug_files -->
 
 <?php
 } // eof configure

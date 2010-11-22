@@ -7,12 +7,12 @@
  * @copyright Portions Copyright 2003-2006 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: googlefroogle.php, v1.3.1 10.08.2007 12:00 numinix $
+ * @version $Id: googlefroogle.php 35 2010-02-09 06:50:42Z numinix $
  */
 
   require('includes/application_top.php');
 
-	function ftp_get_rawlist($url, $login, $password, $ftp_dir='', $ssl=false, $port=21, $timeout=90) {
+	function ftp_get_rawlist($url, $login, $password, $ftp_dir='', $ssl=false, $port=21, $timeout=30) {
 		$out = '';
 		$out .= FTP_CONNECTION_OK . ' ' . $url . '<br />';
 		if($ssl)
@@ -53,6 +53,11 @@ if(isset($_GET['action']) && $_GET['action'] == 'ftpdir') {
 	echo '<pre>';
 	echo $out;
 	exit();
+} elseif(isset($_GET['action']) && ($_GET['action'] == 'delete')) {
+  if (file_exists(DIR_FS_CATALOG . GOOGLE_FROOGLE_DIRECTORY . $_GET['file'])) {
+    unlink(DIR_FS_CATALOG . GOOGLE_FROOGLE_DIRECTORY . $_GET['file']);
+  }
+  zen_redirect(zen_href_link(FILENAME_GOOGLEFROOGLE));
 }
 ?>
 <!doctype html public "-//W3C//DTD HTML 4.01 Transitional//EN">
@@ -125,6 +130,19 @@ function processLoading(text) {
   getObject(name).innerHTML = text;
 }
 //--></script>
+<style type="text/css">
+  label{display:block;width:200px;float:left;}
+  .limiters{width:200px;}
+  .buttonRow{padding:5px 0;}
+  .forward{float:right;}
+  table#googleFiles { margin-left: 0px; border-collapse:collapse; border:1px solid #036; font-size: small; width: 100%; }
+  table#googleFiles th { background-color:#036; border-bottom:1px double #fff; color: #fff; text-align:center; padding:8px; }
+  table#googleFiles td { border:1px solid #036; vertical-align:top; padding:5px 10px; }
+  #contentwrapper{float:left;width:100%;}
+  #columnLeft{margin-right:250px;}
+  .container{margin:0 10px 10px;}
+  #columnRight{float:left;margin-left:-250px;width:250px;}
+</style>
 </head>
 <body onload="init()">
 <!-- header //-->
@@ -132,65 +150,68 @@ function processLoading(text) {
 <!-- header_eof //-->
 
 <!-- body //-->
-<table border="0" width="100%" cellspacing="2" cellpadding="2">
-  <tr>
-<!-- body_text //-->
-    <td width="100%" valign="top"><table border="0" width="100%" cellspacing="0" cellpadding="2">
-      <tr>
-        <td><table border="0" width="100%" cellspacing="0" cellpadding="0">
-          <tr>
-            <td class="pageHeading"><?php echo HEADING_TITLE; ?></td>
-            <td class="pageHeading" align="right"><img src="images/googlebase.gif" width="110" height="48"></td>
-          </tr>
-        </table></td>
-      </tr>
-      <tr>
-      	<td width="100%" valign="top">
-          <table width="100%"  border="0" cellpadding="0" cellspacing="0" class="main">
-            <tr>
-              <td width="78%" align="left" valign="top">
-<?php 
-echo TEXT_GOOGLE_FROOGLE_OVERVIEW_HEAD; 
-echo TEXT_GOOGLE_FROOGLE_OVERVIEW_TEXT; 
-echo TEXT_GOOGLE_FROOGLE_INSTRUCTIONS_HEAD; 
-printf(TEXT_GOOGLE_FROOGLE_INSTRUCTIONS_STEP1, "\"javascript:(void 0)\" class=\"splitPageLink\" onClick=\"window.open('" . HTTP_SERVER . DIR_WS_CATALOG . FILENAME_GOOGLEFROOGLE . ".php?feed=yes&upload=no', 'googlefrooglefeed', 'resizable=1, statusbar=5, width=600, height=400, top=0, left=50, scrollbars=yes')\""); 
-echo TEXT_GOOGLE_FROOGLE_INSTRUCTIONS_STEP1_NOTE;
-?>
-              	<div id="FroogleFeed" style="display: block; margin: 5px; width:96%; float: left; background-color:#CCCCCC;"></div>
-<?php 
-printf(TEXT_GOOGLE_FROOGLE_INSTRUCTIONS_STEP2, "\"javascript:(void 0)\" class=\"splitPageLink\" onClick=\"window.open('" . HTTP_SERVER . DIR_WS_CATALOG . FILENAME_GOOGLEFROOGLE . ".php?feed=no&upload=yes', 'googlefroogleupload', 'resizable=1, statusbar=5, width=600, height=400, top=0, left=50, scrollbars=yes')\""); 
-if(GOOGLE_FROOGLE_UPLOADED_DATE != '') echo TEXT_GOOGLE_FROOGLE_LAST_UPLOAD . GOOGLE_FROOGLE_UPLOADED_DATE; 
-printf(TEXT_GOOGLE_FROOGLE_INSTRUCTIONS_STEP2_NOTE, "\"javascript:(void 0)\" class=\"splitPageLink\" onClick=\"window.open('" . zen_href_link(FILENAME_GOOGLEFROOGLE, 'action=ftpdir') . "', 'googlefroogleftp', 'resizable=1, statusbar=5, width=600, height=400, top=0, left=50, scrollbars=yes')\""); 
- ?>
-                <div id="FroogleFTP" style="display: block; margin: 5px; width:96%; float: left; background-color:#CCCCCC;"></div>
-                <div id="FroogleUpload" style="display: block; margin: 5px; width:96%; float: left; background-color:#CCCCCC;"></div>
-                <?php echo TEXT_GOOGLE_FROOGLE_INSTRUCTIONS_TIPS; ?>
-              </td>
-              <td width="22%" align="right" valign="top">
-              	<table width="98%"  border="0" cellpadding="1" cellspacing="0" bgcolor="#E1EEFF">
-                  <tr>
-                    <td align="center" class="smallText"><?php echo TEXT_GOOGLE_FROOGLE_LOGIN_HEAD; ?> </td>
-                  </tr>
-                  <tr>
-                    <td class="smallText">
-                    	<table width="100%"  border="0" cellpadding="4" cellspacing="0" bgcolor="#F0F8FF">
-                        <tr>
-                          <td align="left" valign="top" class="smallText"><?php echo TEXT_GOOGLE_FROOGLE_LOGIN; ?></td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-<!-- body_text_eof //-->
-    </table>
-    </td>
-  </tr>
-</table>
+<div id="contentwrapper">
+  <div id="columnLeft">
+    <div class="container">
+      <h1><?php echo HEADING_TITLE; ?></h1>
+      <form method="get" action="<?php echo HTTP_SERVER . DIR_WS_CATALOG . FILENAME_GOOGLEFROOGLE . ".php"; ?>" name="google" target="googlefeed" onSubmit="window.open('', 'googlefeed', 'resizable=1, statusbar=5, width=600, height=400, top=0, left=50, scrollbars=yes');setTimeout('location.reload(true);', 5000);">
+        <label for="feed">Feed Type:</label>
+        <select name="feed">
+          <option value="fy_un_tp">Products</option>
+          <option value="fy_un_td">Documents</option>
+          <option value="fy_un_tn">News</option>
+        </select>
+        <br class="clearBoth" />
+        <label for="limit"><?php echo TEXT_ENTRY_LIMIT; ?></label>
+        <?php echo zen_draw_input_field('limit', (int)GOOGLE_FROOGLE_MAX_PRODUCTS, 'class="limiters"'); ?>
+        <br class="clearBoth" />
+        <label for="offset"><?php echo TEXT_ENTRY_OFFSET; ?></label>
+        <?php echo zen_draw_input_field('offset', (int)GOOGLE_BASE_START_PRODUCTS, 'class="limiters"'); ?>
+        <br class="clearBoth" />
+        <?php
+          echo '<div class="buttonRow back">' . zen_image_submit('button_confirm.gif', IMAGE_CONFIRM, 'id="submitButton"') . '</div><br class="clearBoth" />'; 
+        ?>
+      </form>
+      <br />
+      <h2>Available Files</h2> 
+      <table id="googleFiles">
+        <tr>
+          <th>Date (DD/MM/YYYY)</th>
+          <th>Download Link</th>
+          <th>Action</th>
+        </tr>
+        <?php
+        if ($handle = opendir(DIR_FS_CATALOG . GOOGLE_FROOGLE_DIRECTORY)) {
+          while (false !== ($file = readdir($handle))) {
+            if ($file != "." && $file != ".." && $file != 'index.html') {
+            $filetime = filemtime(DIR_FS_CATALOG . GOOGLE_FROOGLE_DIRECTORY . $file);
+            $date = date('j/m/Y');
+        ?>
+              <tr>
+                <td><?php echo $date; ?></td>
+                <td><a href="<?php echo HTTP_SERVER . DIR_WS_CATALOG . GOOGLE_FROOGLE_DIRECTORY . $file; ?>" target="_blank"><?php echo $file;?></a></td>
+                <td>
+                  <a href="<?php echo zen_href_link(FILENAME_GOOGLEFROOGLE, 'file='.$file.'&action=delete');?>">Delete</a>&nbsp;
+                  <a href="#" onclick="window.open('<?php echo HTTP_SERVER . DIR_WS_CATALOG . FILENAME_GOOGLEFROOGLE; ?>.php?feed=fn_uy&upload_file=<?php echo $file; ?>', 'googlefrooglefeed', 'resizable=1, statusbar=5, width=600, height=400, top=0, left=50, scrollbars=yes');">Upload</a>
+                </td>
+              </tr>
+              <?php
+            }
+          }
+          closedir($handle);
+        }
+        ?>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="columnRight">
+  <div class="container">
+    <div><img src="images/googlebase.gif" width="110" height="48"></div>
+    <div class="smallText"><?php echo TEXT_GOOGLE_FROOGLE_LOGIN_HEAD; ?></div>
+    <div class="smallText"><?php echo TEXT_GOOGLE_FROOGLE_LOGIN; ?></div>
+  </div>
+</div>
 <!-- body_eof //-->
 
 <!-- footer //-->

@@ -1,0 +1,77 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Google Base Feeder Documentation</title>
+<style type="text/css">
+<!--
+.style1 {font-family: Verdana, Arial, Helvetica, sans-serif}
+-->
+</style>
+</head>
+
+<body>
+<h3 class="style1"><a href="http://www.numinix.com/index.php?main_page=document_general_info&products_id=756" title="Google Base Feeder Official Site" target="_blank">Google Base Feeder</a></h3>
+<h3 class="style1">Author</h3>
+  numinix webmaster@numinix.com http://www.numinix.com
+  <h3 class="style1">Description</h3>
+<p class="style1"> This Script generates a Google Base data feed as described here:<br />
+  http://www.google.com/base/products.html</p>
+  <h3 class="style1">Support Thread</h3>
+  <a href="http://www.numinix.com/forum/viewtopic.php?t=6" title="Google Base Feeder Support Threat" target="_blank">Google Base Feeder Support Thread</a>
+  <h3 class="style1">Affects DB</h3>
+<p class="style1"> Yes (creates new records into configuration_group, configuration tables and products)</p>
+  <h3 class="style1">DISCLAIMER</h3>
+  <p class="style1"> Installation of this contribution is done at your own risk.<br />
+  Backup your ZenCart database and any and all applicable files before proceeding.</p>
+  <h3 class="style1">Features</h3>
+  <ul>
+    <li>supports Search-Engine Safe URLs</li>
+    <li>could be accessed by http or command line</li>
+    <li>auto-upload to Google Base Merchant's FTP</li>
+    <li>full zen-cart compatibility</li>
+  </ul>
+  <h3 class="style1">Install  </h3>
+  <ol>
+    <li>Unzip and upload all files to your store directory (except .sql files);</li>
+    <li>Chmod feed directory to 777</li>
+    <li>Go to Admin-&gt;Tools-&gt;Install SQL Patches and install googlefroogle.sql by copying and pasting (do not upload);</li>
+    <li>Go to http://base.google.com and create/sign to your account.  Follow the link on the right hand side of their website to create your FTP account.</li>
+    <li>Go to Admin-&gt;Configuration-&gt;Google Base Configuration and setup all parameters;</li>
+    <li>Register your bulk upload .xml file using the same name in your Google Base Configuration at base.google.com</li>
+    <li>Go to Admin-&gt;Tools&gt;Google Base Feeder and follow instructions to create, view, and upload feed file.</li>
+  </ol>
+  <h3 class="style1">Update  </h3>
+  <ol>
+    <li>Upload/Overwrite all files;</li>
+    <li>Install current version update_#_#_#.sql by copying and pasting (do not upload);</li>
+    <li>If no update.sql file available, then no SQL updates required;</li>
+  </ol>
+  <h3 class="style1">Tips  </h3>
+  <p class="style1">To have this update and automatically upload to Google Base, you<br />
+  will need to set up a Cron job via your host's control panel.</p>
+<p class="style1">To run it as a cron job (i.e. at 5:00am), put something in your crontab like the <br />
+  following:<br />
+</p>
+<p class="style1">0 5 * * * GET http://your_http_catalog/googlefroogle.php?feed=fy_uy_tp<br />
+  or<br />
+  0 5 * * * wget http://your_http_catalog/googlefroogle.php?feed=fy_uy_td<br />
+  or<br />
+  0 5 * * * curl -s http://your_http_catalog/googlefroogle.php?feed=fy_uy_tn</p>
+<p class="style1">If your host has disabled cron jobs, try webcron services such as http://www.webcron.org/</p>
+<h3 class="style1">Troubleshooting</h3>
+<ol>
+  <li>If your script is timing out, in the root of your server (not store root), create/open a file called php.ini and add the following lines:<br />
+    <blockquote>
+    max_execution_time = 300<br />
+    max_input_time = 90<br />
+    memory_limit = 32M    </blockquote> 
+  </li>
+  <li>If you are having issues with the FTP function, please contact your host to make sure all the required ports for PHP FTP functions are open.</li>
+  <li>If you are seeing constants in the ADMIN-&gt;CONFIGURATION or ADMIN-&gt;TOOLS (i.e. BOX_GOOGLEFROOGLE), then you are missing a definitions file. <br />
+    Reupload the files by overwriting the old ones.</li>
+  <li>If the FTP function is timing out, as indicated by a timeout error, increase the timeout length in admin-&gt;googlefroogle.php near the beginning of the file.</li>
+  <li>For additional troubleshooting, please visit the support thread, read the entire thread for existing bugs or installation support before posting your questions.</li>
+</ol>
+</body>
+</html>

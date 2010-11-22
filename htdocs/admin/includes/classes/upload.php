@@ -1,29 +1,18 @@
 <?php
-//
-// +----------------------------------------------------------------------+
-// |zen-cart Open Source E-commerce                                       |
-// +----------------------------------------------------------------------+
-// | Copyright (c) 2003 The zen-cart developers                           |
-// |                                                                      |
-// | http://www.zen-cart.com/index.php                                    |
-// |                                                                      |
-// | Portions Copyright (c) 2003 osCommerce                               |
-// +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the GPL license,       |
-// | that is bundled with this package in the file LICENSE, and is        |
-// | available through the world-wide-web at the following url:           |
-// | http://www.zen-cart.com/license/2_0.txt.                             |
-// | If you did not receive a copy of the zen-cart license and are unable |
-// | to obtain it through the world-wide-web, please send a note to       |
-// | license@zen-cart.com so we can mail you a copy immediately.          |
-// +----------------------------------------------------------------------+
-//  $Id: upload.php 1969 2005-09-13 06:57:21Z drbyte $
-//
+/**
+ * upload Class.
+ *
+ * @package classes
+ * @copyright Copyright 2003-2010 Zen Cart Development Team
+ * @copyright Portions Copyright 2003 osCommerce
+ * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
+ * @version $Id: upload.php 17990 2010-10-18 22:43:35Z drbyte $
+*/
 
   class upload {
     var $file, $filename, $destination, $permissions, $extensions, $tmp_filename, $message_location;
 
-    function upload($file = '', $destination = '', $permissions = '777', $extensions = '') {
+    function upload($file = '', $destination = '', $permissions = '644', $extensions = '') {
       $this->set_file($file);
       $this->set_destination($destination);
       $this->set_permissions($permissions);
@@ -73,9 +62,9 @@
         if (sizeof($this->extensions) > 0) {
           if (!in_array(strtolower(substr($file['name'], strrpos($file['name'], '.')+1)), $this->extensions)) {
             if ($this->message_location == 'direct') {
-              $messageStack->add(ERROR_FILETYPE_NOT_ALLOWED, 'error');
+              $messageStack->add(sprintf(ERROR_FILETYPE_NOT_ALLOWED, strtolower(substr($file['name'], strrpos($file['name'], '.')+1))), 'error');
             } else {
-              $messageStack->add_session(ERROR_FILETYPE_NOT_ALLOWED, 'error');
+              $messageStack->add_session(sprintf(ERROR_FILETYPE_NOT_ALLOWED, strtolower(substr($file['name'], strrpos($file['name'], '.')+1))), 'error');
             }
 
             return false;
@@ -169,7 +158,7 @@
       if (!is_writeable($this->destination)) {
         if (is_dir($this->destination)) {
           if ($this->message_location == 'direct') {
-            $messageStack->add_session(sprintf(ERROR_DESTINATION_NOT_WRITEABLE, $this->destination), 'error');
+            $messageStack->add(sprintf(ERROR_DESTINATION_NOT_WRITEABLE, $this->destination), 'error');
           } else {
             $messageStack->add_session(sprintf(ERROR_DESTINATION_NOT_WRITEABLE, $this->destination), 'error');
           }

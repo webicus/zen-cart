@@ -6,11 +6,16 @@
  * see {@link  http://www.zen-cart.com/wiki/index.php/Developers_API_Tutorials#InitSystem wikitutorials} for more details.
  *
  * @package initSystem
- * @copyright Copyright 2003-2007 Zen Cart Development Team
+ * @copyright Copyright 2003-2010 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: initsystem.php 5705 2007-01-27 19:01:07Z wilt $
+ * @version $Id: initsystem.php 15883 2010-04-11 16:41:26Z wilt $
  */
+if (!defined('IS_ADMIN_FLAG'))
+{
+  die('Illegal Access');
+}
+
 $base_dir = DIR_WS_INCLUDES . 'auto_loaders/';
 if (file_exists(DIR_WS_INCLUDES . 'auto_loaders/overrides/' . $loader_file)) {
   $base_dir = DIR_WS_INCLUDES . 'auto_loaders/overrides/';
@@ -35,5 +40,6 @@ if ($loader_dir = dir(DIR_WS_INCLUDES . 'auto_loaders')) {
       }
     }
   }
+  $loader_dir->close();
+  unset($loader_dir, $loader_file);
 }
-?>

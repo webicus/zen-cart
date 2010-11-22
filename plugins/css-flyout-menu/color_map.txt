@@ -1,0 +1,11 @@
+These are the colors used in this menu.
+I though some of you might find it useful.
+
+
+
+#6495ed = cornflowerblue
+#191992 = midnightblue
+#d3d3d3 = lightgray
+#0000ff = blue
+#87ceeb = skyblue
+#fff    = white

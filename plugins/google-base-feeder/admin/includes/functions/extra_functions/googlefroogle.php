@@ -6,7 +6,7 @@
  * @copyright Copyright 2003-2006 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: googlefroogle.php,v 1.2 21.04.2006 14:15 Andrew Berezin $
+ * @version $Id: googlefroogle.php 23 2008-12-03 08:12:41Z numinix $
  */
 
 if (!function_exists('zen_cfg_pull_down_currencies')){
@@ -52,5 +52,5 @@ if (!function_exists('zen_cfg_pull_down_languages_list')){
 		}
 		return zen_draw_pull_down_menu($name, $languages_array, $languages_id);
 	}
-} 
+}
 ?>

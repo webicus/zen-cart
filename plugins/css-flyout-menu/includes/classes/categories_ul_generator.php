@@ -31,10 +31,10 @@
        $parent_end_string = '',
 
        $parent_group_start_string = '<ul%s>',
-       $parent_group_end_string = "</ul>\n",
+       $parent_group_end_string = "</ul>",
 
        $child_start_string = '<li%s>',
-       $child_end_string = "</li>\n",
+       $child_end_string = "</li>",
 
        $spacer_string = '',
        $spacer_multiplier = 1;
@@ -64,25 +64,28 @@
 //}
    }
 
-   function buildBranch($parent_id, $level = 0, $submenu=false) {
+   function buildBranch($parent_id, $level = 0, $submenu=false, $parent_link='') {
      $result = sprintf($this->parent_group_start_string, ($submenu==true) ? ' class="level'. ($level+1) . '"' : '' );
 
-     if (isset($this->data[$parent_id])) {
+     if (($this->data[$parent_id])) {
        foreach ($this->data[$parent_id] as $category_id => $category) {
-         $category_link = $category_id;
-         if (isset($this->data[$category_id])) {
+         $category_link = $parent_link . $category_id;
+         if (($this->data[$category_id])) {
          $result .= sprintf($this->child_start_string, ($submenu==true) ? ' class="submenu"' : '');
          } else {
-         $result .= sprintf($this->child_start_string, '');
-         }
-         if (isset($this->data[$category_id])) {
+         
+        
+         if (($this->data[$category_id]) && ($submenu==false)) {
            $result .= sprintf($this->parent_start_string, ($submenu==true) ? ' class="level'.($level+1) . '"' : '');
-         }
-
+		   $result .= sprintf($this->child_start_string, ($submenu==true) ? ' class="submenu"' : '');
+         } else {
+                              $result .= sprintf($this->child_start_string, '');
+                            }
+          }
          if ($level == 0) {
            $result .= $this->root_start_string;
          }
-         $result .= str_repeat($this->spacer_string, $this->spacer_multiplier * $level) . '<a href="' . zen_href_link(FILENAME_DEFAULT, 'cPath=' . $category_link) . '">';
+         $result .= str_repeat($this->spacer_string, $this->spacer_multiplier * 1) . '<a href="' . zen_href_link(FILENAME_DEFAULT, 'cPath=' . $category_link) . '">';
          $result .= $category['name'];
          $result .= '</a>';
 
@@ -90,12 +93,12 @@
            $result .= $this->root_end_string;
          }
 
-         if (isset($this->data[$category_id])) {
+         if (($this->data[$category_id])) {
            $result .= $this->parent_end_string;
          }
 
-         if (isset($this->data[$category_id]) && (($this->max_level == '0') || ($this->max_level > $level+1))) {
-           $result .= $this->buildBranch($category_id, $level+1, $submenu);
+         if (($this->data[$category_id]) && (($this->max_level == '0') || ($this->max_level > $level+1))) {
+           $result .= $this->buildBranch($category_id, $level+1, $submenu, $category_link . '_');
          }
          $result .= $this->child_end_string;
 
@@ -111,4 +114,5 @@
      return $this->buildBranch($this->root_category_id, '', $submenu);
    }
  }
+ 
 ?>

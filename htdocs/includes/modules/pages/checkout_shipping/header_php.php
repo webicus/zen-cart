@@ -3,10 +3,10 @@
  * Checkout Shipping Page
  *
  * @package page
- * @copyright Copyright 2003-2006 Zen Cart Development Team
+ * @copyright Copyright 2003-2009 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: header_php.php 6669 2007-08-16 10:05:49Z drbyte $
+ * @version $Id: header_php.php 18007 2010-10-21 06:41:51Z drbyte $
  */
 // This should be first line of the script:
   $zco_notifier->notify('NOTIFY_HEADER_START_CHECKOUT_SHIPPING');
@@ -73,7 +73,13 @@
 
 // register a random ID in the session to check throughout the checkout procedure
 // against alterations in the shopping cart contents
-  $_SESSION['cartID'] = $_SESSION['cart']->cartID;
+if (isset($_SESSION['cart']->cartID)) {
+  if (!isset($_SESSION['cartID']) || $_SESSION['cart']->cartID != $_SESSION['cartID']) {
+    $_SESSION['cartID'] = $_SESSION['cart']->cartID;
+  }
+} else {
+  zen_redirect(zen_href_link(FILENAME_TIME_OUT));
+}
 
 // if the order contains only virtual products, forward the customer to the billing page as
 // a shipping address is not needed
@@ -91,6 +97,7 @@
   require(DIR_WS_CLASSES . 'shipping.php');
   $shipping_modules = new shipping;
 
+  $pass = true;
   if ( defined('MODULE_ORDER_TOTAL_SHIPPING_FREE_SHIPPING') && (MODULE_ORDER_TOTAL_SHIPPING_FREE_SHIPPING == 'true') ) {
     $pass = false;
 
@@ -131,10 +138,18 @@
       $_SESSION['comments'] = zen_db_prepare_input($_POST['comments']);
     }
     $comments = $_SESSION['comments'];
+    $quote = array();
 
     if ( (zen_count_shipping_modules() > 0) || ($free_shipping == true) ) {
       if ( (isset($_POST['shipping'])) && (strpos($_POST['shipping'], '_')) ) {
-        $_SESSION['shipping'] = $_POST['shipping'];
+        /**
+         * check to be sure submitted data hasn't been tampered with
+         */
+        if ($_POST['shipping'] == 'free_free' && ($order->content_type != 'virtual' && !$pass)) {
+          $quote['error'] = 'Invalid input. Please make another selection.';
+        } else {
+          $_SESSION['shipping'] = $_POST['shipping'];
+        }
 
         list($module, $method) = explode('_', $_SESSION['shipping']);
         if ( is_object($$module) || ($_SESSION['shipping'] == 'free_free') ) {
@@ -180,7 +195,7 @@
   $displayAddressEdit = (MAX_ADDRESS_BOOK_ENTRIES >= 2);
 
   // if shipping-edit button should be overridden, do so
-  $editShippingButtonLink = zen_href_link(FILENAME_CHECKOUT_SHIPPING_ADDRESS, '', 'SSL');	
+  $editShippingButtonLink = zen_href_link(FILENAME_CHECKOUT_SHIPPING_ADDRESS, '', 'SSL');
   if (isset($_SESSION['payment']) && method_exists($$_SESSION['payment'], 'alterShippingEditButton')) {
     $theLink = $$_SESSION['payment']->alterShippingEditButton();
     if ($theLink) {
@@ -194,4 +209,3 @@
 
 // This should be last line of the script:
   $zco_notifier->notify('NOTIFY_HEADER_END_CHECKOUT_SHIPPING');
-?>

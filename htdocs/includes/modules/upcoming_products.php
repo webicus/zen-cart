@@ -3,10 +3,10 @@
  * upcoming_products module
  *
  * @package modules
- * @copyright Copyright 2003-2007 Zen Cart Development Team
+ * @copyright Copyright 2003-2008 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: upcoming_products.php 6424 2007-05-31 05:59:21Z ajeh $
+ * @version $Id: upcoming_products.php 8730 2008-06-28 01:31:22Z drbyte $
  */
 if (!defined('IS_ADMIN_FLAG')) {
   die('Illegal Access');
@@ -44,6 +44,7 @@ if ( (($manufacturers_id > 0 && $_GET['filter_id'] == 0) || $_GET['music_genre_i
                        from " . TABLE_PRODUCTS . " p, " . TABLE_PRODUCTS_DESCRIPTION . " pd
                        where p.products_id = pd.products_id
                        and p.products_id in (" . $list_of_products . ")
+                       and p.products_status = 1
                        and pd.language_id = '" . (int)$_SESSION['languages_id'] . "' " .
                        $display_limit .
                        $limit_clause;

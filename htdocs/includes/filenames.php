@@ -4,10 +4,10 @@
  * Defines the filenames used in the project
  *
  * @package general
- * @copyright Copyright 2003-2006 Zen Cart Development Team
+ * @copyright Copyright 2003-2010 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: filenames.php 4179 2006-08-20 21:19:52Z ajeh $
+ * @version $Id: filenames.php 17421 2010-08-31 00:23:52Z drbyte $
  * @private
  */
 /**
@@ -25,6 +25,7 @@ define('FILENAME_ADDRESS_BOOK_PROCESS', 'address_book_process');
 define('FILENAME_ADMIN', 'admin');
 define('FILENAME_ADVANCED_SEARCH', 'advanced_search');
 define('FILENAME_ADVANCED_SEARCH_RESULT', 'advanced_search_result');
+define('FILENAME_ALERT_PAGE', 'alert_page');
 define('FILENAME_ALT_NAV', 'alt_nav');
 define('FILENAME_ATTRIBUTES', 'attributes');
 define('FILENAME_ATTRIBUTES_CONTROLLER', 'attributes_controller');
@@ -103,6 +104,10 @@ define('FILENAME_OPTIONS_NAME_MANAGER', 'options_name_manager');
 define('FILENAME_OPTIONS_VALUES_MANAGER', 'options_values_manager');
 define('FILENAME_PAGE_NOT_FOUND', 'page_not_found');
 define('FILENAME_PAYPAL', 'paypal');
+define('FILENAME_PAYER_AUTH_AUTH', 'payer_auth_auth');
+define('FILENAME_PAYER_AUTH_FRAME', 'payer_auth_frame');
+define('FILENAME_PAYER_AUTH_START', 'payer_auth_start');
+define('FILENAME_PAYER_AUTH_VERIFIER', 'payer_auth_verifier');
 define('FILENAME_PAGE_2', 'page_2');
 define('FILENAME_PAGE_3', 'page_3');
 define('FILENAME_PAGE_4', 'page_4');
@@ -182,4 +187,3 @@ define('FILENAME_UPCOMING_PRODUCTS', 'upcoming_products.php');
 
 define('FILENAME_BB_INDEX', 'index.php'); // phpBB main index filename
 
-?>

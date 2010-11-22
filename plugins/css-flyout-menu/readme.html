@@ -1,0 +1,86 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<!-- @(#) 
+$Id$ CSS Flyout Menu v1.3.8 
+$ID$ Get Em Fast Thursday, May 28, 2009
+-->
+<head>
+	<title>Read Me</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
+	<meta name="Generator" content="Dev-PHP 2.4.1" />
+	<meta name="Keywords" content="your,keywords,here" />
+	<meta name="Description" content="." />
+
+	<meta http-equiv="pragma" content="no-cache" />
+	<meta http-equiv="cache-control" content="no-cache" />
+
+	<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+	<link rel="stylesheet" type="text/css" href="stdStyle.css" />
+</head>
+<body>
+<table bgcolor="#d3d3d3">
+<tr><td>
+<h1 style="text-align: center;"><span style="color: rgb(0, 0, 255);"><b>Here it is again....The All Popular CSS Flyout Menu.</b></span></h1>
+<h2 style="text-align: center;"><b><span style="color: rgb(0, 0, 255);">Version 1.3.9</span></b></h2>
+<h3>&nbsp; &nbsp;&nbsp;This time it's better looking than ever, with a <i>sleek</i> new look and <i> cleaned up</i> css code, and support for IE6 HAS BEEN DROPPED...WooHoo! This version has the csshover.htc file taken out, as calling it with the stylesheet caused problems with css validation, and still didn't work with IE6, anyway. So all support for IE6 has been dropped and this versions' css validates with w3c Validation services.<br />
+<p>   
+&nbsp;&nbsp;&nbsp;This version contains two small arrows for easy recognition of categories that have sub-categories.....one for hover-off and one for hover-on. Also included for your convenience is 70....yes.....70 different colors and styles of arrows so when styling your menu to your needs, you should be able to find the color and style that you want. If, for some reason you don't find arrows to meet your needs.....I've also included the .psd file so you can style your own in Photoshop!
+Also, this version has included the styling of the Categories Container and Heading that the previous versions lacked.
+</p><br />
+</tr></td></table>
+
+<div align="center"><h3>Enjoy!</h3></div>
+<div align="center"><img src="menu.png" alt="image of the menu"></img>
+</div>
+&nbsp; <br />
+<h2><u><font color="#0080C0">Installation:</font></u></h2>
+<br /><p>
+&nbsp;&nbsp;&nbsp;There has been some problems in the past with the understanding of the installation, as the instructions weren't very clear. They did not take into consideration that not all users were used to installing Zen-Cart modules. So, in this version, I'm going to try to clear that up a bit.
+<p>
+&nbsp;&nbsp;&nbsp;Once you have downloaded the zip file to your pc, unzip it. Look in the folder tree and you will find a folder called "CUSTOM" in "includes/templates/CUSTOM". You will need to rename that folder to whatever your custom templates' name is.
+Let's say your custom template's name is "orange". Then the folder structer after you rename the CUSTOM folder should look like this: "includes/templates/orange/".<p>
+
+&nbsp;&nbsp;&nbsp;After you have that done, then using your FTP client, upload the entire "includes" folder (leaving all other folders in tact) to the root of your Zen-Cart site. By leaving the folder structure in tact on your computer, your FTP client will place all included files in the proper place on your site.
+</p><p>
+
+<h2><u><font color="#0080C0">Turning the Menu "on":</font></u></h2><br>
+&nbsp;&nbsp;&nbsp;After the above step is complete, log into your Admin area on your site and navigate to Admin>Tools>Layout Boxes Controller. There you will find a new box (and have a warning at the top of the page that a new box has been found)called <font color="#FF0000">categories_css.php</font>. Turn that on, placing it on which ever side and 
+what ever order you desire.   
+<p>&nbsp;</p>
+
+<h2><u><font color="#0080C0">Styling Your Menu:</font></u></h2><br>
+&nbsp;&nbsp;&nbsp;In order to style your menu to your deired needs, such as colors, font sizes, margins, paddings, and such, you will need to have a little knowledge of css. You can find the stylesheet for this menu in:
+ "includes/templates/CUSTOM/css><font color="#FF0000">stylesheet_categories_menu.css</font>" <br />
+ 
+    If you just want to change the arrows, then look in "includes/templates/CUSTOM/images/arrows", find the ones you would like to use and make note of their number.<br />
+	Then, in the stylesheet, you'll see two sections of code that call these images:<br />
+	
+<p>	This section is for the hover-<font color="#FF0000">off</font> arrow:</p>
+<font color="#0080C0">
+<p>	#nav-cat li.submenu {<br />
+&nbsp;&nbsp;&nbsp;background: url(../images/arrows/arrow<font color="#FF0000">40</font>.png) 99% 50% no-repeat;<br />
+&nbsp;&nbsp;&nbsp;background-color: #6495ed;<br />
+}</font><br />
+<br />
+</p>
+ 
+<p>    This section is for the hover-<font color="#FF0000">on</font> arrow:</p>
+<font color="#0080C0">	
+<p>	#nav-cat li.submenu:hover {<br />
+&nbsp;&nbsp;&nbsp;background: url(../images/arrows/arrow<font color="#FF0000">62</font>.png) 99% 50% no-repeat;<br />
+}</font><br />
+</p>
+
+All you have to do here, is change the number(s) from 40 and 62 to the number(s) of the arrows that you would like to use.<br />
+
+<center><p>For the rest of your customizations, you can find me in the Zen-Cart Forum or visit me on my site listed below.</p></center>
+ 
+ 
+<table bgcolor="#d3d3d3">
+<tr><td>
+<p><h3>Brought to you once again by <a href="http://getemfast.com" target="_self">Get Em Fast</a>. Come check us out! Maybe buy me a cup of coffee while your're there for all the hard work that goes into creating new versions and for the constant continued support of this menu. (just look for my coffee cup, and click!)</h3>
+<div align="center">&nbsp;&nbsp;&nbsp;Maybe you need some work done on your site? We do that too! So be sure to drop by <a href="http://getemfast.com">Get Em Fast</a> to have your Zen-Cart<sup>tm</sup> Customized today!</p></div>
+<div align="center"><a href="http://www.getemfast.com"><img src="logo.png" BORDER=0></a></tr></td></table>
+</body>
+</html>
+		

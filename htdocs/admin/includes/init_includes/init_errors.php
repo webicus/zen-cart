@@ -1,10 +1,10 @@
 <?php
 /**
  * @package admin
- * @copyright Copyright 2003-2006 Zen Cart Development Team
+ * @copyright Copyright 2003-2010 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: init_errors.php 3399 2006-04-09 19:20:47Z drbyte $
+ * @version $Id: init_errors.php 17422 2010-08-31 08:42:09Z drbyte $
  */
 if (!defined('IS_ADMIN_FLAG')) {
   die('Illegal Access');
@@ -32,7 +32,12 @@ if (!defined('IS_ADMIN_FLAG')) {
     }
   }
 
-// this will let the admin know that the website is DOWN FOR MAINTENANCE to the public
+  // check if email subsystem has been disabled
+  if (SEND_EMAILS != 'true') {
+    $messageStack->add(WARNING_EMAIL_SYSTEM_DISABLED, 'error');
+  }
+
+  // this will let the admin know that the website is DOWN FOR MAINTENANCE to the public
   if (DOWN_FOR_MAINTENANCE == 'true') {
     $messageStack->add(WARNING_ADMIN_DOWN_FOR_MAINTENANCE,'caution');
   }
@@ -65,4 +70,14 @@ if (!defined('IS_ADMIN_FLAG')) {
       $messageStack->add(ERROR_ADMIN_SECURITY_WARNING, 'caution');
     }
   }
-?>
+
+  // log cleanup
+  if ($za_dir = @dir(DIR_FS_SQL_CACHE)) {
+    while ($zv_file = $za_dir->read()) {
+      if (preg_match('/^zcInstall.*\.log$/', $zv_file)) {
+        unlink(DIR_FS_SQL_CACHE . '/' . $zv_file);
+      }
+    }
+    $za_dir->close();
+    unset($za_dir);
+  }

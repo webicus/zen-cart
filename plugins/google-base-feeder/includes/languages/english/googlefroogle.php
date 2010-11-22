@@ -7,10 +7,10 @@
  * @copyright Portions Copyright 2003-2006 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: googlefroogle.php,v 1.3 01.08.2006 20:48 numinix $
+ * @version $Id: googlefroogle.php 23 2008-12-03 08:12:41Z numinix $
  */
  
-define('TEXT_GOOGLE_FROOGLE_STARTED', 'Google Base Feeder v.' . GOOGLE_FROOGLE_VERSION . ' started ' . date("Y/m/d H:i:s"));
+define('TEXT_GOOGLE_FROOGLE_STARTED', 'Google Base Feeder v%s started ' . date("Y/m/d H:i:s"));
 define('TEXT_GOOGLE_FROOGLE_FILE_LOCATION', 'Feed file - ');
 define('TEXT_GOOGLE_FROOGLE_FEED_COMPLETE', 'Google Base File Complete');
 define('TEXT_GOOGLE_FROOGLE_FEED_TIMER', 'Time:');

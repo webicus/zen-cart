@@ -3,12 +3,14 @@
  * paypal EC button display template
  *
  * @package paymentMethod
- * @copyright Copyright 2003-2007 Zen Cart Development Team
+ * @copyright Copyright 2003-2010 Zen Cart Development Team
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: tpl_ec_button.php 7297 2007-10-27 21:04:49Z drbyte $
+ * @version $Id: tpl_ec_button.php 17642 2010-09-28 19:06:13Z drbyte $
  */
 
 $paypalec_enabled = (defined('MODULE_PAYMENT_PAYPALWPP_STATUS') && MODULE_PAYMENT_PAYPALWPP_STATUS == 'True');
+$ecs_off = (defined('MODULE_PAYMENT_PAYPALWPP_ECS_BUTTON') && MODULE_PAYMENT_PAYPALWPP_ECS_BUTTON == 'Off');
+if ($ecs_off) $paypalec_enabled = FALSE;
 
 if ($paypalec_enabled) {
   // check if logged-in customer's address is in an acceptable zone
@@ -42,7 +44,7 @@ if ($paypalec_enabled) {
   }
 
   // PayPal module cannot be used for purchase > $10,000 USD or 5500 GBP
-  if ( ($_SESSION['currency'] == 'USD' && $currencies->value($_SESSION['cart']->total, true, 'USD') > 10000) 
+  if ( ($_SESSION['currency'] == 'USD' && $currencies->value($_SESSION['cart']->total, true, 'USD') > 10000)
     || ($_SESSION['currency'] == 'GBP' && $currencies->value($_SESSION['cart']->total, true, 'GBP') > 5500) ) {
     $paypalec_enabled = false;
   }
@@ -56,7 +58,7 @@ if ($paypalec_enabled) {
     unset($_SESSION['paypal_ec_payer_id']);
     unset($_SESSION['paypal_ec_payer_info']);
 
-    include DIR_WS_LANGUAGES . $_SESSION['language'] . '/modules/payment/paypalwpp.php';
+    include zen_get_file_directory(DIR_FS_CATALOG . DIR_WS_LANGUAGES . $_SESSION['language'] . '/modules/payment/','paypalwpp.php', 'false');
 ?>
 <div id="PPECbutton" class="buttonRow">
   <a href="<?php echo zen_href_link('ipn_main_handler.php', 'type=ec', 'SSL', true, true, true); ?>"><img src="<?php echo MODULE_PAYMENT_PAYPALWPP_EC_BUTTON_IMG ?>" alt="<?php echo MODULE_PAYMENT_PAYPALWPP_TEXT_BUTTON_ALTTEXT; ?>" /></a>

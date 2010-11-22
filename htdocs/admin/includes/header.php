@@ -1,25 +1,26 @@
 <?php
 /**
  * @package admin
- * @copyright Copyright 2003-2006 Zen Cart Development Team
+ * @copyright Copyright 2003-2010 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: header.php 5700 2007-01-27 02:57:45Z ajeh $
+ * @version $Id: header.php 15825 2010-04-05 10:55:01Z drbyte $
  */
 if (!defined('IS_ADMIN_FLAG')) {
   die('Illegal Access');
 }
-// $messageStack->add('REGISTERED GLOBALS ARE TURNED OFF IN .htaccess ','caution');
 
   $version_check_requested = (isset($_GET['vcheck']) && $_GET['vcheck']!='') ? true : false;
 
 // Show Languages Dropdown for convenience only if main filename and directory exists
 if ((basename($PHP_SELF) != FILENAME_DEFINE_LANGUAGE . '.php') and (basename($PHP_SELF) != FILENAME_PRODUCTS_OPTIONS_NAME . '.php') and empty($action)) {
+  $languages_array = array();
   $languages = zen_get_languages();
   if (sizeof($languages) > 1) {
-    $languages_array = array();
-    $languages_selected = $_GET['language'];
+    //$languages_selected = $_GET['language'];
+    $languages_selected = $_SESSION['language'];
     $missing_languages='';
+    $count = 0;
     for ($i = 0, $n = sizeof($languages); $i < $n; $i++) {
       $test_directory= DIR_WS_LANGUAGES . $languages[$i]['directory'];
       $test_file= DIR_WS_LANGUAGES . $languages[$i]['directory'] . '.php';
@@ -71,7 +72,7 @@ if ((basename($PHP_SELF) != FILENAME_DEFINE_LANGUAGE . '.php') and (basename($PH
     if (NEW_SIGNUP_DISCOUNT_COUPON > 0) {
       $zc_welcome_check = $db->Execute("SELECT coupon_expire_date from " . TABLE_COUPONS . " WHERE coupon_id=" . (int)NEW_SIGNUP_DISCOUNT_COUPON);
       $zc_current_date = date('Y-m-d');
-      $zc_days_to_expire = date_diff($zc_current_date, $zc_welcome_check->fields['coupon_expire_date']);
+      $zc_days_to_expire = zen_date_diff($zc_current_date, $zc_welcome_check->fields['coupon_expire_date']);
       if ($zc_days_to_expire <= 21) {
         $zc_caution_warning = ($zc_days_to_expire <= 5 ? 'warning' : 'caution');
         $messageStack->add(sprintf(WARNING_WELCOME_DISCOUNT_COUPON_EXPIRES_IN, $zc_days_to_expire), $zc_caution_warning);
@@ -204,7 +205,7 @@ if ((basename($PHP_SELF) != FILENAME_DEFINE_LANGUAGE . '.php') and (basename($PH
 <?php
   if ($new_version) {
 ?>
-    <td align="right" class="main" valign="top"><?php echo $new_version; ?></td>
+    <td align="right" class="main" valign="top"><?php echo $new_version; ?><br /><?php echo '(' . TEXT_CURRENT_VER_IS . ' v' . PROJECT_VERSION_MAJOR . '.' . PROJECT_VERSION_MINOR . (PROJECT_VERSION_PATCH1 != '' ? 'p' . PROJECT_VERSION_PATCH1 : '') . ')'; ?></td>
 <?php
   }
 ?>
