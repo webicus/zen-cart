@@ -1,0 +1,35 @@
+1) Change the name of the "admin" directory in this package to suit your zencart installation
+2) The temp folder is configured to reside in your store directory. If you store is not in the 
+   site root (eg. /mystore/) then the temp directory must also go in this directory.
+3) If you want to re-name the uploads (temp) folder, ensure that you configure Easy Populate to
+   reflect this change after installation
+4) Upload all files in their respective directories.
+5) Go to Admin -> Tools -> Easy Populate. If prompted to install Easy Populate, click on the
+   link provided. Otherwise, type in your browser address bar ?langer=install after /easypopulate.php
+   (eg. YOUR_ADMIN/easypopulate.php?langer=install). If you wish to remove and re-install the default
+   config settings, type ?langer=remove after /easypopulate.php
+   (eg. YOUR_ADMIN/easypopulate.php?langer=remove) and begin this step again.
+6) Go to Admin -> Configuration -> Easy Populate, and configure the upload directory if you have
+   changed it from default. Also, ensure that the correct date format is set for your upload files.
+7) If this mod gives you more time with your family or friends, and/or less customer headaches, please
+   consider a donation to paypal@portability.com.au to ensure this module is continually supported and improved :-)
+
+
+IMPORTANT!!!
+-------------
+
+** your temp folder must have owner permissions to read/write/execute (chmod 700) for EP to work.
+   EP now adjusts this for you (unless you have a windows server - ask your host to adjust permissions on this folder for the IIS web server)
+** The temp folder has example downloaded files in it. You may wish to delete these before uploading.
+** It is recommended that you download a file 1st and use this as a template for your uploads (install should do this for you..)
+** If for some reason the config install fails, you can upload the SQL file provided using Admin -> Tools -> Install SQL Patches
+
+That's it!
+REMEMBER TO BACK UP EVERYTHING FIRST!
+
+
+A special thank you goes to the following sponsors:
+
+Baelzebub
+supercheapstore
+jryan
