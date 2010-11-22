@@ -3,7 +3,7 @@
  * @package documentation
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: 1.readme_installation.html 6565 2007-07-05 20:44:56Z drbyte $
+ * @version $Id: 1.readme_installation.html 6664 2007-08-15 05:40:03Z drbyte $
  */
 //-->
 <html>
@@ -181,7 +181,11 @@ You will need the following information for the installation: <br />
 <li><strong>The  physical path to your new Zen Cart&trade; directory</strong><br />
 Example: <span class="filename">/home2/zencart/public_html/catalog</span></li><br /><br />
 <li><strong>The Virtual HTTP Path (the URL to your domain and directory for your shop)</strong><br />
-Example: <span class="filename">http://www.mydomain.com/catalog</span><br /></li><br />
+Example: <span class="filename">http://www.mydomain.com/catalog</span><br /></li></ul>
+<h3>SSL</h3>
+If you are installing onto a live webserver where you intend to process real transactions, you should plan on securing your customers' transaction data with SSL.  If you don't already have an SSL certificate, talk to your hosting company about your available options.  You will need to enter your SSL details below. In most cases they will be correct, unless you're using a "shared SSL" service. Your hosting company can give you the correct URL.<br />
+If you are installing to a local PC or to a development server where you do not need to protect sensitive data, you can leave the SSL settings at their defaults, and when asked about enabling SSL later in the installation process, just leave it off if you're not on a live production server.
+<ul>
 <li><strong>The Virtual HTTPS Server (the secure URL to your domain)</strong><br />
 Example: <span class="filename">https://www.mydomain.com</span><br />
 Note: if you have a shared certificate on a virtual server this may look like:<br />

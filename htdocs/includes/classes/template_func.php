@@ -3,9 +3,9 @@
  * template_func Class.
  *
  * @package classes
- * @copyright Copyright 2003-2006 Zen Cart Development Team
+ * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: template_func.php 6526 2007-06-25 22:59:38Z drbyte $
+ * @version $Id: template_func.php 6023 2007-03-19 06:40:13Z drbyte $
  */
 if (!defined('IS_ADMIN_FLAG')) {
   die('Illegal Access');

@@ -9,7 +9,7 @@
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: tpl_shopping_cart_default.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: tpl_shopping_cart_default.php 5554 2007-01-07 02:45:29Z drbyte $
  */
 ?>
 <div class="centerColumn" id="shoppingCartDefault">

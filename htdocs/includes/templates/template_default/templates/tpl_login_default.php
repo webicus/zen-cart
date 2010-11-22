@@ -6,7 +6,7 @@
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: tpl_login_default.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: tpl_login_default.php 5926 2007-02-28 18:15:39Z drbyte $
  */
 ?>
 <div class="centerColumn" id="loginDefault">
@@ -47,6 +47,7 @@
 
 <label class="inputLabel" for="login-password"><?php echo ENTRY_PASSWORD; ?></label>
 <?php echo zen_draw_password_field('password', '', 'size="18" id="login-password"'); ?>
+<?php echo zen_draw_hidden_field('securityToken', $_SESSION['securityToken']); ?>
 <br class="clearBoth" />
 
 <div class="buttonRow forward"><?php echo zen_image_submit(BUTTON_IMAGE_LOGIN, BUTTON_LOGIN_ALT); ?></div>
@@ -75,6 +76,7 @@
 <label class="inputLabel" for="login-password"><?php echo ENTRY_PASSWORD; ?></label>
 <?php echo zen_draw_password_field('password', '', zen_set_field_length(TABLE_CUSTOMERS, 'customers_password') . ' id="login-password"'); ?>
 <br class="clearBoth" />
+<?php echo zen_draw_hidden_field('securityToken', $_SESSION['securityToken']); ?>
 </fieldset>
 
 <div class="buttonRow forward"><?php echo zen_image_submit(BUTTON_IMAGE_LOGIN, BUTTON_LOGIN_ALT); ?></div>

@@ -6,7 +6,7 @@
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: ipn_main_handler.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: ipn_main_handler.php 7497 2007-11-27 06:20:27Z drbyte $
  */
 
 /**
@@ -56,26 +56,25 @@ Processing...
  */
 
 } else {
-$isECtransaction = ($_POST['txn_type']=='express_checkout' || $_POST['txn_type']=='cart');
+$isECtransaction = ($_POST['txn_type']=='express_checkout' /*|| $_POST['txn_type']=='cart'*/);
 /**
- * require general paypal functions
+ * Include custom application_top.php
  */
-require('includes/modules/payment/paypal/paypal_functions.php');
-/**
- * require custom paypal application_top.php
- */
-require('includes/modules/payment/paypal/ipn_application_top.php');
-/**
- * require language defines
- */
-if (!isset($_SESSION['language'])) $_SESSION['language'] = 'english';
-if (file_exists(DIR_WS_LANGUAGES . $_SESSION['language'] . '/' . $template_dir_select . 'checkout_process.php')) {
-  require(DIR_WS_LANGUAGES . $_SESSION['language'] . '/' . $template_dir_select . 'checkout_process.php');
-} else {
-  require(DIR_WS_LANGUAGES . $_SESSION['language'] . '/checkout_process.php');
-}
-//require('includes/languages/english/checkout_process.php');
+$show_all_errors = false;
+$current_page_base = 'paypalipn';
+$loaderPrefix = 'paypal_ipn';
+require('includes/application_top.php');
+
 $extraDebug = (defined('IPN_EXTRA_DEBUG_DETAILS') && IPN_EXTRA_DEBUG_DETAILS == 'All');
+
+if (  (defined('MODULE_PAYMENT_PAYPALWPP_DEBUGGING') && strstr(MODULE_PAYMENT_PAYPALWPP_DEBUGGING, 'Log')) ||
+      (defined('MODULE_PAYMENT_PAYPAL_IPN_DEBUG') && strstr(MODULE_PAYMENT_PAYPAL_IPN_DEBUG, 'Log')) || 
+      ($_POST['ppdebug'] == 'on' && strstr(EXCLUDE_ADMIN_IP_FOR_MAINTENANCE, $_SERVER['REMOTE_ADDR']))  ) {
+  @ini_set('display_errors', E_ALL ^ E_NOTICE);
+  error_reporting(E_ALL ^ E_NOTICE);
+  $show_all_errors = true;
+}
+
 /**
  * do confirmation post-back to PayPal and extract the results for subsequent use
  */
@@ -113,7 +112,7 @@ ipn_debug_email('Breakpoint: 3 - Communication method verified');
  * Lookup transaction history information in preparation for matching and relevant updates
  */
 $lookupData  = ipn_lookup_transaction($_POST);
-$ordersID    = $lookupData['zen_order_id'];
+$ordersID    = $lookupData['order_id'];
 $paypalipnID = $lookupData['paypal_ipn_id'];
 $txn_type    = $lookupData['txn_type'];
 
@@ -155,21 +154,35 @@ switch ($txn_type) {
   case 'pending-verify':
     if (!isECtransaction) {
       ipn_debug_email('IPN NOTICE :: '.$txn_type.' transaction -- inserting initial record for reference purposes');
-      $paypal_order = ipn_create_order_array($ordersID, $txn_type);
-      zen_db_perform(TABLE_PAYPAL, $paypal_order);
-      $paypal_order_history = ipn_create_order_history_array($paypalipnID);
-      zen_db_perform(TABLE_PAYPAL_PAYMENT_STATUS_HISTORY, $paypal_order_history);
+      $sql_data_array = ipn_create_order_array($ordersID, $txn_type);
+      zen_db_perform(TABLE_PAYPAL, $sql_data_array);
+      $sql_data_array = ipn_create_order_history_array($paypalipnID);
+      zen_db_perform(TABLE_PAYPAL_PAYMENT_STATUS_HISTORY, $sql_data_array);
       die();
       break;
     }
-  case 'cart':
+//  case 'cart':
   case 'express_checkout':
     // This is an express-checkout transaction -- IPN serves no needed purpose
     if ($_POST['payment_status'] == 'Completed') {
-      ipn_debug_email('IPN NOTICE :: Express Checkout payment notice on completed order -- IPN Ignored');
+      if (isset($_POST['auth_status']) && $_POST['auth_status'] == 'Completed') {
+        ipn_debug_email('IPN NOTICE :: Auth-Capture notice on completed order -- IPN Ignored');
+      } else {
+        ipn_debug_email('IPN NOTICE :: Express Checkout payment notice on completed order -- IPN Ignored');
+      }
+      die();
+    }
+    if ($_POST['payment_type'] == 'instant' && isset($_POST['auth_status']) && $_POST['auth_status'] == 'Pending') {
+      ipn_debug_email('IPN NOTICE :: Direct Payment notice on pre-auth order -- IPN Ignored');
       die();
     }
     if (!(substr($txn_type,0,8) == 'pending-' && (int)$ordersID <= 0) && !($new_record_needed && $txn_type == 'echeck-cleared') && $txn_type != 'unique') break;
+
+  case ($txn_type == 'cart'):
+      ipn_debug_email('IPN NOTICE :: This is a detailed-cart transaction');
+
+  case ($txn_type == 'cart' && !isECtransaction):
+      ipn_debug_email('IPN NOTICE :: This is a detailed-cart transaction (i)');
 
   case (substr($txn_type,0,8) == 'pending-' && (int)$ordersID <= 0):
   case ($new_record_needed && $txn_type == 'echeck-cleared'):
@@ -205,24 +218,25 @@ switch ($txn_type) {
     }
     $insert_id = $order->create($order_totals);
     if ($extraDebug) ipn_debug_email('Breakpoint: 5a - built order -- OID:' . $insert_id);
-    $paypal_order = ipn_create_order_array($insert_id, $txn_type);
-    if ($extraDebug) ipn_debug_email('Breakpoint: 5b - PP table OID:' . print_r($paypal_order, true));
-    zen_db_perform(TABLE_PAYPAL, $paypal_order);
+    $sql_data_array = ipn_create_order_array($insert_id, $txn_type);
+    if ($extraDebug) ipn_debug_email('Breakpoint: 5b - PP table OID:' . print_r($sql_data_array, true));
+    zen_db_perform(TABLE_PAYPAL, $sql_data_array);
     if ($extraDebug) ipn_debug_email('Breakpoint: 5c - PP table OID saved');
     $pp_hist_id = $db->Insert_ID();
     if ($extraDebug) ipn_debug_email('Breakpoint: 5d - PP hist ID:' . $pp_hist_id);
-    $paypal_order_history = ipn_create_order_history_array($pp_hist_id);
-    if ($extraDebug) ipn_debug_email('Breakpoint: 5e - PP hist_data:' . print_r($paypal_order_history, true));
-    zen_db_perform(TABLE_PAYPAL_PAYMENT_STATUS_HISTORY, $paypal_order_history);
+    $sql_data_array = ipn_create_order_history_array($pp_hist_id);
+    if ($extraDebug) ipn_debug_email('Breakpoint: 5e - PP hist_data:' . print_r($sql_data_array, true));
+    zen_db_perform(TABLE_PAYPAL_PAYMENT_STATUS_HISTORY, $sql_data_array);
     if ($extraDebug) ipn_debug_email('Breakpoint: 5f - PP hist saved');
     $new_status = MODULE_PAYMENT_PAYPAL_ORDER_STATUS_ID;
     if ($extraDebug) ipn_debug_email('Breakpoint: 5g - new status code' . $new_status);
     if ($_POST['payment_status'] =='Pending') {
       $new_status = MODULE_PAYMENT_PAYPAL_PROCESSING_STATUS_ID;
     if ($extraDebug) ipn_debug_email('Breakpoint: 5h - newer status code' . $new_status);
-      $db->Execute("update " . TABLE_ORDERS  . "
-                      set orders_status = " . MODULE_PAYMENT_PAYPAL_PROCESSING_STATUS_ID . "
-                      where orders_id = '" . $insert_id . "'");
+      $sql = "UPDATE " . TABLE_ORDERS  . "
+              SET orders_status = " . MODULE_PAYMENT_PAYPAL_PROCESSING_STATUS_ID . "
+              WHERE orders_id = '" . $insert_id . "'";
+      $db->Execute($sql);
     if ($extraDebug) ipn_debug_email('Breakpoint: 5i - order table updated');
     }
     $sql_data_array = array('orders_id' => $insert_id,
@@ -260,21 +274,23 @@ switch ($txn_type) {
   case 'failed-echeck':
   case 'denied-intl':
   case 'denied':
+  case 'voided':
   case 'express-checkout-cleared':
     if ($txn_type == 'parent') {
-      $paypal_order = ipn_create_order_array($ordersID, $txn_type);
-      zen_db_perform(TABLE_PAYPAL, $paypal_order);
+      $sql_data_array = ipn_create_order_array($ordersID, $txn_type);
+      zen_db_perform(TABLE_PAYPAL, $sql_data_array);
     } else {
-      $paypal_order = ipn_create_order_update_array($txn_type);
-      zen_db_perform(TABLE_PAYPAL, $paypal_order, 'update', "txn_id='" . $_POST['txn_id'] . "'");
+      $sql_data_array = ipn_create_order_update_array($txn_type);
+      zen_db_perform(TABLE_PAYPAL, $sql_data_array, 'update', "txn_id='" . $_POST['txn_id'] . "'");
     }
-    $paypal_order_history = ipn_create_order_history_array($paypalipnID);
-    zen_db_perform(TABLE_PAYPAL_PAYMENT_STATUS_HISTORY, $paypal_order_history);
+    $sql_data_array = ipn_create_order_history_array($paypalipnID);
+    zen_db_perform(TABLE_PAYPAL_PAYMENT_STATUS_HISTORY, $sql_data_array);
     ipn_debug_email('IPN NOTICE :: Updating PP table record status for order #' . $ordersID . ' txn_id: ' . $_POST['txn_id'] . ' PP IPN ID: ' . $paypalipnID);
 
   switch ($txn_type) {
-    case ($_POST['payment_status'] == 'Refunded' || $_POST['payment_status'] == 'Reversed'):
-      //payment_status=Refunded
+    case 'voided':
+    case ($_POST['payment_status'] == 'Refunded' || $_POST['payment_status'] == 'Reversed' || $_POST['payment_status'] == 'Voided'):
+      //payment_status=Refunded or payment_status=Voided
       $new_status = MODULE_PAYMENT_PAYPALWPP_REFUNDED_STATUS_ID;
       if (defined('MODULE_PAYMENT_PAYPAL_REFUND_ORDER_STATUS_ID') && (int)MODULE_PAYMENT_PAYPAL_REFUND_ORDER_STATUS_ID > 0 && !$isECtransaction) $new_status = MODULE_PAYMENT_PAYPAL_REFUND_ORDER_STATUS_ID;
     break;
@@ -290,7 +306,8 @@ switch ($txn_type) {
     break;
     case ($txn_type=='express-checkout-cleared' || substr($txn_type,0,8) == 'cleared-'):
       //express-checkout-cleared
-      $new_status = MODULE_PAYMENT_PAYPALWPP_ORDER_STATUS_ID;
+      $new_status = ($isECtransaction && defined('MODULE_PAYMENT_PAYPALWPP_ORDER_STATUS_ID') ? MODULE_PAYMENT_PAYPALWPP_ORDER_STATUS_ID : MODULE_PAYMENT_PAYPAL_ORDER_STATUS_ID);
+      if ((int)$new_status == 0) $new_status = 2;
     break;
     case 'pending-auth':
       // pending authorization
@@ -305,9 +322,9 @@ switch ($txn_type) {
   }
   // update order status history with new information
   ipn_debug_email('IPN NOTICE :: Set new status ' . $new_status . " for order ID = " .  $ordersID . ($_POST['pending_reason'] != '' ? '.   Reason_code = ' . $_POST['pending_reason'] : '') );
+  if ((int)$new_status == 0) $new_status = 1;
   if (in_array($_POST['payment_status'], array('Refunded', 'Reversed', 'Denied', 'Failed')) 
       || substr($txn_type,0,8) == 'cleared-' || $txn_type=='echeck-cleared' || $txn_type == 'express-checkout-cleared') {
-    if ((int)$new_status == 0) $new_status = 1;
     ipn_update_orders_status_and_history($ordersID, $new_status, $txn_type);
   }
   break;

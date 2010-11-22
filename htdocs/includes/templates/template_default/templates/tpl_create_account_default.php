@@ -9,7 +9,7 @@
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: tpl_create_account_default.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: tpl_create_account_default.php 5523 2007-01-03 09:37:48Z drbyte $
  */
 ?>
 <div class="centerColumn" id="createAcctDefault">

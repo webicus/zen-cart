@@ -4,10 +4,10 @@
  * Session functions
  *
  * @package functions
- * @copyright Copyright 2003-2005 Zen Cart Development Team
+ * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: sessions.php 6525 2007-06-25 21:49:57Z drbyte $
+ * @version $Id: sessions.php 6662 2007-08-12 21:37:17Z wilt $
  */
 if (!defined('IS_ADMIN_FLAG')) {
   die('Illegal Access');
@@ -105,7 +105,12 @@ if (!defined('IS_ADMIN_FLAG')) {
     if (defined('DIR_WS_ADMIN')) {
       @ini_set('session.gc_maxlifetime', (SESSION_TIMEOUT_ADMIN < 900 ? (SESSION_TIMEOUT_ADMIN + 900) : SESSION_TIMEOUT_ADMIN));
     }
-    return session_start();
+    $temp = session_start();
+    if (!isset($_SESSION['securityToken'])) {
+      $_SESSION['securityToken'] = md5(uniqid(rand(), true));
+    }
+  	if (ereg_replace('[a-zA-Z0-9]', '', session_id()) != '') session_regenerate_id();
+    return $temp;
   }
 
   function zen_session_register($variable) {

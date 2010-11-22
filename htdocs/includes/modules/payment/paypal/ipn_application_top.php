@@ -6,13 +6,14 @@
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: ipn_application_top.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: ipn_application_top.php 6376 2007-05-25 20:29:51Z drbyte $
  */
 
 /**
  * boolean used to see if we are in the admin script, obviously set to false here.
  */
 define('IS_ADMIN_FLAG', false);
+
   error_reporting(0);
   $show_all_errors = false;
   $current_page_base = 'paypalipn';
@@ -182,6 +183,7 @@ define('IS_ADMIN_FLAG', false);
   }  
   if (!$_POST) {
     ipn_debug_email('IPN FATAL ERROR :: No POST data available -- Most likely initiated by browser and not PayPal.' . "\n\n\n" . '     *** The rest of this log report can most likely be ignored !! ***' . "\n\n\n\n");
+     //if ($show_all_errors) echo 'No POST data. This is not a real IPN transaction. Any "Undefined" errors below can be ignored ...<br />';
   }
   
   

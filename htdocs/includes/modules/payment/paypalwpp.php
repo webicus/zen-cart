@@ -6,7 +6,7 @@
  * @copyright Copyright 2003-2007 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
- * @version $Id: paypalwpp.php 6528 2007-06-25 23:25:27Z drbyte $
+ * @version $Id: paypalwpp.php 7620 2007-12-11 19:12:46Z drbyte $
  */
 
 /**
@@ -56,12 +56,6 @@ class paypalwpp extends base {
    * @var array
    */
   var $cards = array();
-  /**
-   * certification ID for use in Payflow Pro gateway mode only
-   *
-   * @var string
-   */
-  var $payflowCertificationId = '32c1c2473fb255128c092e2d012c7fe1';
   /**
    * JS code used for gateway/DP mode
    *
@@ -130,11 +124,12 @@ class paypalwpp extends base {
     global $order;
     $this->code = 'paypalwpp';
     $this->codeTitle = MODULE_PAYMENT_PAYPALWPP_TEXT_ADMIN_TITLE_EC;
-    $this->codeVersion = '0.1b';
+    $this->codeVersion = '1.3.8a';
     $this->enableDirectPayment = (MODULE_PAYMENT_PAYPALWPP_DIRECT_ENABLED == 'True');
+    $this->enabled = (MODULE_PAYMENT_PAYPALWPP_STATUS == 'True');
     // Set the title & description text based on the mode we're in ... EC vs DP vs admin
     if (IS_ADMIN_FLAG === true) {
-      $this->description = sprintf(MODULE_PAYMENT_PAYPALWPP_TEXT_ADMIN_DESCRIPTION, ' (v' . $this->codeVersion . ')');
+      $this->description = sprintf(MODULE_PAYMENT_PAYPALWPP_TEXT_ADMIN_DESCRIPTION, ' (rev' . $this->codeVersion . ')');
       switch (MODULE_PAYMENT_PAYPALWPP_MODULE_MODE) {
         case ('PayPal'):
           if (MODULE_PAYMENT_PAYPALWPP_DIRECT_ENABLED == 'True') {
@@ -156,12 +151,14 @@ class paypalwpp extends base {
         default:
           $this->title = MODULE_PAYMENT_PAYPALWPP_TEXT_ADMIN_TITLE_EC;
       }
-      if ( (MODULE_PAYMENT_PAYPALWPP_MODULE_MODE == 'PayPal' && (MODULE_PAYMENT_PAYPALWPP_APISIGNATURE == '' || MODULE_PAYMENT_PAYPALWPP_APIUSERNAME == '' || MODULE_PAYMENT_PAYPALWPP_APIPASSWORD == ''))
-        || (substr(MODULE_PAYMENT_PAYPALWPP_MODULE_MODE,0,7) == 'Payflow' && (MODULE_PAYMENT_PAYPALWPP_PFPARTNER == '' || MODULE_PAYMENT_PAYPALWPP_PFVENDOR == '' || MODULE_PAYMENT_PAYPALWPP_PFUSER == '' || MODULE_PAYMENT_PAYPALWPP_PFPASSWORD == ''))
-        ) $this->title .= '<span class="alert"><strong> NOT CONFIGURED YET</strong></span>';
-      if (MODULE_PAYMENT_PAYPALWPP_SERVER =='sandbox') $this->title .= '<strong><span class="alert"> (sandbox active)</span></strong>';
-      if (MODULE_PAYMENT_PAYPALWPP_DEBUGGING =='Log File' || MODULE_PAYMENT_PAYPALWPP_DEBUGGING =='Log and Email') $this->title .= '<strong> (Debug)</strong>';
-      if (!function_exists('curl_init')) $this->title .= '<strong><span class="alert"> CURL NOT FOUND. Cannot Use.</span></strong>';
+      if ($this->enabled) {
+        if ( (MODULE_PAYMENT_PAYPALWPP_MODULE_MODE == 'PayPal' && (MODULE_PAYMENT_PAYPALWPP_APISIGNATURE == '' || MODULE_PAYMENT_PAYPALWPP_APIUSERNAME == '' || MODULE_PAYMENT_PAYPALWPP_APIPASSWORD == ''))
+          || (substr(MODULE_PAYMENT_PAYPALWPP_MODULE_MODE,0,7) == 'Payflow' && (MODULE_PAYMENT_PAYPALWPP_PFPARTNER == '' || MODULE_PAYMENT_PAYPALWPP_PFVENDOR == '' || MODULE_PAYMENT_PAYPALWPP_PFUSER == '' || MODULE_PAYMENT_PAYPALWPP_PFPASSWORD == ''))
+          ) $this->title .= '<span class="alert"><strong> NOT CONFIGURED YET</strong></span>';
+        if (MODULE_PAYMENT_PAYPALWPP_SERVER =='sandbox') $this->title .= '<strong><span class="alert"> (sandbox active)</span></strong>';
+        if (MODULE_PAYMENT_PAYPALWPP_DEBUGGING =='Log File' || MODULE_PAYMENT_PAYPALWPP_DEBUGGING =='Log and Email') $this->title .= '<strong> (Debug)</strong>';
+        if (!function_exists('curl_init')) $this->title .= '<strong><span class="alert"> CURL NOT FOUND. Cannot Use.</span></strong>';
+      }
     } else {
       $this->description = MODULE_PAYMENT_PAYPALWPP_TEXT_DESCRIPTION;
       $this->title = MODULE_PAYMENT_PAYPALWPP_EC_TEXT_TITLE; //pp
@@ -170,7 +167,6 @@ class paypalwpp extends base {
       }
     }
 
-    $this->enabled = (MODULE_PAYMENT_PAYPALWPP_STATUS == 'True');
     if ((!defined('PAYPAL_OVERRIDE_CURL_WARNING') || (defined('PAYPAL_OVERRIDE_CURL_WARNING') && PAYPAL_OVERRIDE_CURL_WARNING != 'True')) && !function_exists('curl_init')) $this->enabled = false;
 
     $this->enableDebugging = (MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log File' || MODULE_PAYMENT_PAYPALWPP_DEBUGGING =='Log and Email');
@@ -198,12 +194,14 @@ class paypalwpp extends base {
     $this->zone = (int)MODULE_PAYMENT_PAYPALWPP_ZONE;
     if (is_object($order)) $this->update_status();
 
+    if (PROJECT_VERSION_MAJOR != '1' && substr(PROJECT_VERSION_MINOR, 0, 3) != '3.8') $this->enabled = false;
 
     // offer credit card choices for pull-down menu -- only needed for UK version
     $this->cards = array();
     if (MODULE_PAYMENT_PAYPALWPP_MODULE_MODE == 'Payflow-UK') {
       if (CC_ENABLED_VISA=='1')    $this->cards[] = array('id' => 'Visa', 'text' => 'Visa');
       if (CC_ENABLED_MC=='1')      $this->cards[] = array('id' => 'MasterCard', 'text' => 'MasterCard');
+      if (CC_ENABLED_MAESTRO=='1') $this->cards[] = array('id' => 'Maestro', 'text' => 'Maestro');
       if (CC_ENABLED_SWITCH=='1')  $this->cards[] = array('id' => 'Switch', 'text' => 'Switch');
       if (CC_ENABLED_SOLO=='1')    $this->cards[] = array('id' => 'Solo', 'text' => 'Solo');
     }
@@ -220,7 +218,7 @@ class paypalwpp extends base {
     // DEV MODE:
     if (defined('PAYPAL_DEV_MODE') && PAYPAL_DEV_MODE == 'true') $this->_logLevel = PEAR_LOG_DEBUG;
 
-    $this->tableCheckup();
+    if (IS_ADMIN_FLAG === true) $this->tableCheckup();
 
   }
   /**
@@ -252,6 +250,10 @@ class paypalwpp extends base {
       if (!$check_flag) {
         $this->enabled = false;
       }
+
+      // module cannot be used for purchase > $10,000 USD
+      $order_amount = $this->calc_order_amount($order->info['total'], 'USD');
+      if ($order_amount > 10000) $this->enabled = false;
     }
   }
   /**
@@ -264,10 +266,10 @@ class paypalwpp extends base {
     }
 
     return '  if (payment_value == "' . $this->code . '") {' . "\n" .
-           '    var cc_firstname = document.checkout_payment.paypalwpp_cc_firstname.value;' . "\n" .
-           '    var cc_lastname = document.checkout_payment.paypalwpp_cc_lastname.value;' . "\n" .
-           '    var cc_number = document.checkout_payment.paypalwpp_cc_number.value;' . "\n" .
-           '    var cc_checkcode = document.checkout_payment.paypalwpp_cc_number.value;' . "\n" .
+           '    var cc_firstname = document.checkout_payment.paypalec_cc_firstname.value;' . "\n" .
+           '    var cc_lastname = document.checkout_payment.paypalec_cc_lastname.value;' . "\n" .
+           '    var cc_number = document.checkout_payment.paypalec_cc_number.value;' . "\n" .
+           '    var cc_checkcode = document.checkout_payment.paypalwpp_cc_checkcode.value;' . "\n" .
            '    if (cc_firstname == "" || cc_lastname == "" || eval(cc_firstname.length) + eval(cc_lastname.length) < ' . CC_OWNER_MIN_LENGTH . ') {' . "\n" .
            '      error_message = error_message + "' . MODULE_PAYMENT_PAYPALWPP_TEXT_JS_CC_OWNER . '";' . "\n" .
            '      error = 1;' . "\n" .
@@ -284,13 +286,20 @@ class paypalwpp extends base {
   function selection() {
     global $order;
     $this->cc_type_check =
-            'var value = document.checkout_payment.paypalwpp_cc_type.value;' .
+            'var value = document.checkout_payment.paypalec_cc_type.value;' .
             'if (value == "Switch" || value == "Solo") {' .
-            '    document.checkout_payment.paypalwpp_cc_issue_month.disabled = false;' .
-            '    document.checkout_payment.paypalwpp_cc_issue_year.disabled = false;' .
-            '    document.checkout_payment.paypalwpp_cc_checkcode.disabled = true;' .
+            '    document.checkout_payment.paypalec_cc_issue_month.disabled = false;' .
+            '    document.checkout_payment.paypalec_cc_issue_year.disabled = false;' .
+            '    document.checkout_payment.paypalec_cc_checkcode.disabled = true;' .
+            '    if (document.checkout_payment.paypalec_cc_issuenumber) document.checkout_payment.paypalec_cc_issuenumber.disabled = true;' .
+            '} else if (value == "Maestro") {' .
+            '    document.checkout_payment.paypalec_cc_issuenumber.disabled = false;' .
+            '    if (document.checkout_payment.paypalec_cc_issue_month) document.checkout_payment.paypalec_cc_issue_month.disabled = true;' .
+            '    if (document.checkout_payment.paypalec_cc_issue_year) document.checkout_payment.paypalec_cc_issue_year.disabled = true;' .
+            '    document.checkout_payment.paypalec_cc_checkcode.disabled = false;' .
             '} else {' .
-            '    document.checkout_payment.paypalwpp_cc_checkcode.disabled = false;' .
+            '    if (document.checkout_payment.paypalec_cc_issuenumber) document.checkout_payment.paypalec_cc_issuenumber.disabled = true;' .
+            '    document.checkout_payment.paypalec_cc_checkcode.disabled = false;' .
             '}';
     if (sizeof($this->cards) == 0 || $this->enableDirectPayment == false) $this->cc_type_check = '';
 
@@ -299,7 +308,7 @@ class paypalwpp extends base {
      */
     if ($this->enableDirectPayment == false) {
       return array('id' => $this->code,
-                   'module' => '<img src="' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_IMG . '" alt="' . MODULE_PAYMENT_PAYPALWPP_TEXT_BUTTON_ALTTEXT . '" /><span style="font-size:11px; font-family: Arial, Verdana;"> ' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_TXT . '</span>');
+                   'module' => '<img src="' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_IMG . '" alt="' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_TXT . '" /><span style="font-size:11px; font-family: Arial, Verdana;"> ' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_TXT . '</span>');
     }
 
     /**
@@ -309,7 +318,7 @@ class paypalwpp extends base {
     $expires_year = array();
     $issue_year = array();
     for ($i = 1; $i < 13; $i++) {
-      $expires_month[] = array('id' => sprintf('%02d', $i), 'text' => strftime('(%m) - %B',mktime(0,0,0,$i,1,2000)));
+      $expires_month[] = array('id' => sprintf('%02d', $i), 'text' => strftime('%B - (%m)',mktime(0,0,0,$i,1,2000)));
     }
 
     $today = getdate();
@@ -321,25 +330,25 @@ class paypalwpp extends base {
 
     $fieldsArray = array();
     $fieldsArray[] = array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_FIRSTNAME,
-                           'field' => zen_draw_input_field('paypalwpp_cc_firstname', $order->billing['firstname'], 'id="'.$this->code.'-cc-ownerf"'. $onFocus) . 
-                           '<script type="text/javascript">function paypalwpp_cc_type_check() { ' . $this->cc_type_check . ' } </script>',
+                           'field' => zen_draw_input_field('paypalec_cc_firstname', $order->billing['firstname'], 'id="'.$this->code.'-cc-ownerf"'. $onFocus) . 
+                           '<script type="text/javascript">function paypalec_cc_type_check() { ' . $this->cc_type_check . ' } </script>',
                            'tag' => $this->code.'-cc-ownerf');
     $fieldsArray[] = array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_LASTNAME,
-                           'field' => zen_draw_input_field('paypalwpp_cc_lastname', $order->billing['lastname'], 'id="'.$this->code.'-cc-ownerl"'. $onFocus),
+                           'field' => zen_draw_input_field('paypalec_cc_lastname', $order->billing['lastname'], 'id="'.$this->code.'-cc-ownerl"'. $onFocus),
                            'tag' => $this->code.'-cc-ownerl');
     if (sizeof($this->cards)>0) $fieldsArray[] = array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_TYPE,
-                            'field' => zen_draw_pull_down_menu('paypalwpp_cc_type', $this->cards, '', 'onchange="paypalwpp_cc_type_check();" onblur="paypalwpp_cc_type_check();"' . 'id="'.$this->code.'-cc-type"'. $onFocus),
+                            'field' => zen_draw_pull_down_menu('paypalec_cc_type', $this->cards, '', 'onchange="paypalec_cc_type_check();" onblur="paypalec_cc_type_check();"' . 'id="'.$this->code.'-cc-type"'. $onFocus),
                            'tag' => $this->code.'-cc-type');
     $fieldsArray[] = array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_NUMBER,
-                           'field' => zen_draw_input_field('paypalwpp_cc_number', $ccnum, 'id="'.$this->code.'-cc-number"' . $onFocus),
+                           'field' => zen_draw_input_field('paypalec_cc_number', $ccnum, 'id="'.$this->code.'-cc-number"' . $onFocus),
                            'tag' => $this->code.'-cc-number');
     $fieldsArray[] = array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_EXPIRES,
-                           'field' => zen_draw_pull_down_menu('paypalwpp_cc_expires_month', $expires_month, '', 'id="'.$this->code.'-cc-expires-month"' . $onFocus) . '&nbsp;' . zen_draw_pull_down_menu('paypalwpp_cc_expires_year', $expires_year, '', 'id="'.$this->code.'-cc-expires-year"' . $onFocus),
+                           'field' => zen_draw_pull_down_menu('paypalec_cc_expires_month', $expires_month, '', 'id="'.$this->code.'-cc-expires-month"' . $onFocus) . '&nbsp;' . zen_draw_pull_down_menu('paypalec_cc_expires_year', $expires_year, '', 'id="'.$this->code.'-cc-expires-year"' . $onFocus),
                            'tag' => $this->code.'-cc-expires-month');
     $fieldsArray[] = array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_CHECKNUMBER,
-                           'field' => zen_draw_input_field('paypalwpp_cc_checkcode', '', 'size="4" maxlength="4"' . ' id="'.$this->code.'-cc-cvv"' . $onFocus) . '&nbsp;<small>' . MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_CHECKNUMBER_LOCATION . '</small><script type="text/javascript">paypalwpp_cc_type_check();</script>',
+                           'field' => zen_draw_input_field('paypalec_cc_checkcode', '', 'size="4" maxlength="4"' . ' id="'.$this->code.'-cc-cvv"' . $onFocus) . '&nbsp;<small>' . MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_CHECKNUMBER_LOCATION . '</small><script type="text/javascript">paypalec_cc_type_check();</script>',
                            'tag' => $this->code.'-cc-cvv');
-    if (MODULE_PAYMENT_PAYPALWPP_MODULE_MODE == 'PayPal')  $fieldsArray[] = array('title' => '<br /><img src="' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_IMG . '" alt="' . MODULE_PAYMENT_PAYPALWPP_TEXT_BUTTON_ALTTEXT . '" /><span style="font-size:11px; font-family: Arial, Verdana;"> ' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_TXT . '</span>');
+    if (MODULE_PAYMENT_PAYPALWPP_MODULE_MODE == 'PayPal')  $fieldsArray[] = array('title' => '<br /><img src="' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_IMG . '" alt="' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_TXT . '" /><span style="font-size:11px; font-family: Arial, Verdana;"> ' . MODULE_PAYMENT_PAYPALWPP_MARK_BUTTON_TXT . '</span>');
 
     $selection = array('id' => $this->code,
                        'module' => MODULE_PAYMENT_PAYPALWPP_TEXT_TITLE,
@@ -352,10 +361,18 @@ class paypalwpp extends base {
       }
       array_splice($selection['fields'], 4, 0,
                    array(array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_ISSUE,
-                               'field' => zen_draw_pull_down_menu('paypalwpp_cc_issue_month', $expires_month, '', 'id="'.$this->code.'-cc-issue-month"' . $onFocus ) . '&nbsp;' . zen_draw_pull_down_menu('paypalwpp_cc_issue_year', $issue_year, '', 'id="'.$this->code.'-cc-issue-year"' . $onFocus),
+                               'field' => zen_draw_pull_down_menu('paypalec_cc_issue_month', $expires_month, '', 'id="'.$this->code.'-cc-issue-month"' . $onFocus ) . '&nbsp;' . zen_draw_pull_down_menu('paypalec_cc_issue_year', $issue_year, '', 'id="'.$this->code.'-cc-issue-year"' . $onFocus),
                                'tag' => $this->code.'-cc-issue-month')));
     }
-
+/* @TODO -- convert this to handle Issue Number
+    if (MODULE_PAYMENT_PAYPALWPP_MODULE_MODE == 'Payflow-UK' && CC_ENABLED_MAESTRO=='1') {
+      // add extra field for Maestro cards
+      array_splice($selection['fields'], 4, 0,
+                   array(array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_MAESTRO_ISSUENUMBER,
+                               'field' => zen_draw_pull_down_menu('paypalec_cc_issuenumber', $expires_month, '', 'id="'.$this->code.'-cc-issue-month"' . $onFocus ),
+                               'tag' => $this->code.'-cc-issue-month')));
+    }
+*/
     return $selection;
   }
   /**
@@ -371,9 +388,9 @@ class paypalwpp extends base {
 
     include(DIR_WS_CLASSES . 'cc_validation.php');
     $cc_validation = new cc_validation();
-    $result = $cc_validation->validate($_POST['paypalwpp_cc_number'],
-                                       $_POST['paypalwpp_cc_expires_month'], $_POST['paypalwpp_cc_expires_year'],
-                                       $_POST['paypalwpp_cc_issue_month'], $_POST['paypalwpp_cc_issue_year']);
+    $result = $cc_validation->validate($_POST['paypalec_cc_number'],
+                                       $_POST['paypalec_cc_expires_month'], $_POST['paypalec_cc_expires_year'],
+                                       $_POST['paypalec_cc_issue_month'], $_POST['paypalec_cc_issue_year']);
     $error = '';
     switch ($result) {
       case -1:
@@ -389,7 +406,8 @@ class paypalwpp extends base {
       break;
     }
 
-    $_POST['paypalwpp_cc_checkcode'] = preg_replace('/[^0-9]/i', '', $_POST['paypalwpp_cc_checkcode']);
+    $_POST['paypalec_cc_checkcode'] = preg_replace('/[^0-9]/i', '', $_POST['paypalec_cc_checkcode']);
+    $_POST['paypalec_cc_issuenumber'] = preg_replace('/[^0-9]/i', '', $_POST['paypalec_cc_issuenumber']);
 
     if (($result === false) || ($result < 1) ) {
       $this->terminateEC(MODULE_PAYMENT_PAYPALWPP_TEXT_CARD_ERROR . '<br />' . $error, false, FILENAME_CHECKOUT_PAYMENT);
@@ -399,7 +417,7 @@ class paypalwpp extends base {
     $this->cc_card_number = $cc_validation->cc_number;
     $this->cc_expiry_month = $cc_validation->cc_expiry_month;
     $this->cc_expiry_year = $cc_validation->cc_expiry_year;
-    $this->cc_checkcode = $_POST['paypalwpp_cc_checkcode'];
+    $this->cc_checkcode = $_POST['paypalec_cc_checkcode'];
   }
   /**
    * Display Credit Card Information for review on the Checkout Confirmation Page
@@ -410,15 +428,15 @@ class paypalwpp extends base {
     } else {
       $confirmation = array('title' => '',
                             'fields' => array(array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_FIRSTNAME,
-                                                    'field' => $_POST['paypalwpp_cc_firstname']),
+                                                    'field' => $_POST['paypalec_cc_firstname']),
                                               array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_LASTNAME,
-                                                    'field' => $_POST['paypalwpp_cc_lastname']),
+                                                    'field' => $_POST['paypalec_cc_lastname']),
                                               array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_TYPE,
                                                     'field' => $this->cc_card_type),
                                               array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_NUMBER,
-                                                    'field' => substr($_POST['paypalwpp_cc_number'], 0, 4) . str_repeat('X', (strlen($_POST['paypalwpp_cc_number']) - 8)) . substr($_POST['paypalwpp_cc_number'], -4)),
+                                                    'field' => substr($_POST['paypalec_cc_number'], 0, 4) . str_repeat('X', (strlen($_POST['paypalec_cc_number']) - 8)) . substr($_POST['paypalec_cc_number'], -4)),
                                               array('title' => MODULE_PAYMENT_PAYPALWPP_TEXT_CREDIT_CARD_EXPIRES,
-                                                    'field' => strftime('%B, %Y', mktime(0,0,0,$_POST['paypalwpp_cc_expires_month'], 1, '20' . $_POST['paypalwpp_cc_expires_year'])))));
+                                                    'field' => strftime('%B, %Y', mktime(0,0,0,$_POST['paypalec_cc_expires_month'], 1, '20' . $_POST['paypalec_cc_expires_year'])))));
     }
     return $confirmation;
   }
@@ -430,15 +448,15 @@ class paypalwpp extends base {
       $process_button_string = '';
     } else {
       $_SESSION['paypal_ec_markflow'] = 1;
-      $process_button_string = zen_draw_hidden_field('wpp_cc_type', $_POST['paypalwpp_cc_type']) .
-      zen_draw_hidden_field('wpp_cc_expdate_month', $_POST['paypalwpp_cc_expires_month']) .
-      zen_draw_hidden_field('wpp_cc_expdate_year', $_POST['paypalwpp_cc_expires_year']) .
-      zen_draw_hidden_field('wpp_cc_issuedate_month', $_POST['paypalwpp_cc_issue_month']) .
-      zen_draw_hidden_field('wpp_cc_issuedate_year', $_POST['paypalwpp_cc_issue_year']) .
-      zen_draw_hidden_field('wpp_cc_number', $_POST['paypalwpp_cc_number']) .
-      zen_draw_hidden_field('wpp_cc_checkcode', $_POST['paypalwpp_cc_checkcode']) .
-      zen_draw_hidden_field('wpp_payer_firstname', $_POST['paypalwpp_cc_firstname']) .
-      zen_draw_hidden_field('wpp_payer_lastname', $_POST['paypalwpp_cc_lastname']);
+      $process_button_string = zen_draw_hidden_field('ec_cc_type', $_POST['paypalec_cc_type']) .
+      zen_draw_hidden_field('ec_cc_expdate_month', $_POST['paypalec_cc_expires_month']) .
+      zen_draw_hidden_field('ec_cc_expdate_year', $_POST['paypalec_cc_expires_year']) .
+      zen_draw_hidden_field('ec_cc_issuedate_month', $_POST['paypalec_cc_issue_month']) .
+      zen_draw_hidden_field('ec_cc_issuedate_year', $_POST['paypalec_cc_issue_year']) .
+      zen_draw_hidden_field('ec_cc_number', $_POST['paypalec_cc_number']) .
+      zen_draw_hidden_field('ec_cc_checkcode', $_POST['paypalec_cc_checkcode']) .
+      zen_draw_hidden_field('ec_payer_firstname', $_POST['paypalec_cc_firstname']) .
+      zen_draw_hidden_field('ec_payer_lastname', $_POST['paypalec_cc_lastname']);
     }
     return $process_button_string;
   }
@@ -516,7 +534,7 @@ class paypalwpp extends base {
 
       $response = $doPayPal->DoExpressCheckoutPayment($_SESSION['paypal_ec_token'],
                                                       $_SESSION['paypal_ec_payer_id'],
-                                                      number_format($order_amount, 2),
+                                                      number_format((isset($options['AMT']) ? $options['AMT'] : $order_amount), 2),
                                                       $options);
 
       $this->zcLog('before_process - EC-5', 'resultset:' . "\n" . urldecode(print_r($response, true)));
@@ -567,11 +585,9 @@ class paypalwpp extends base {
 
       // Validate credit card data
       include(DIR_WS_CLASSES . 'cc_validation.php');
-      if ($_POST['wpp_cc_issuedate_year'] && strlen($_POST['wpp_cc_issuedate_year']) < 4) $_POST['wpp_cc_issuedate_year'] = '20' . $_POST['wpp_cc_issuedate_year'];
       $cc_validation = new cc_validation();
-      $response = $cc_validation->validate($_POST['wpp_cc_number'], $_POST['wpp_cc_expdate_month'], 
-                                           $_POST['wpp_cc_expdate_year'], $_POST['wpp_cc_issuedate_month'], 
-                                           $_POST['wpp_cc_issuedate_year']);
+      $response = $cc_validation->validate($_POST['ec_cc_number'], $_POST['ec_cc_expdate_month'], $_POST['ec_cc_expdate_year'], 
+                                           $_POST['ec_cc_issuedate_month'], $_POST['ec_cc_issuedate_year']);
       $error = '';
       switch ($response) {
         case -1:
@@ -592,7 +608,7 @@ class paypalwpp extends base {
       if ($response == false || $response < 1) {
         $this->terminateEC($error, false, FILENAME_CHECKOUT_PAYMENT);
       }
-      if (!in_array($cc_validation->cc_type, array('Visa', 'MasterCard', 'Switch', 'Solo', 'Discover', 'American Express'))) { 
+      if (!in_array($cc_validation->cc_type, array('Visa', 'MasterCard', 'Switch', 'Solo', 'Discover', 'American Express', 'Maestro'))) { 
         $this->terminateEC(MODULE_PAYMENT_PAYPALWPP_TEXT_BAD_CARD, false, FILENAME_CHECKOUT_PAYMENT);
       }
 
@@ -601,13 +617,13 @@ class paypalwpp extends base {
       // if CC validation passed, continue using the validated data
       $cc_type = $cc_validation->cc_type;
       $cc_number = $cc_validation->cc_number;
-      $cc_first_name = $_POST['wpp_payer_firstname'];
-      $cc_last_name = $_POST['wpp_payer_lastname'];
-      $cc_checkcode = $_POST['wpp_cc_checkcode'];
+      $cc_first_name = $_POST['ec_payer_firstname'];
+      $cc_last_name = $_POST['ec_payer_lastname'];
+      $cc_checkcode = $_POST['ec_cc_checkcode'];
       $cc_expdate_month = $cc_validation->cc_expiry_month;
       $cc_expdate_year = $cc_validation->cc_expiry_year;
-      $cc_issuedate_month = $_POST['wpp_cc_issuedate_month'];
-      $cc_issuedate_year = $_POST['wpp_cc_issuedate_year'];
+      $cc_issuedate_month = $_POST['ec_cc_issuedate_month'];
+      $cc_issuedate_year = $_POST['ec_cc_issuedate_year'];
       $cc_owner_ip = zen_get_ip_address();
 
 
@@ -698,7 +714,7 @@ class paypalwpp extends base {
       // PNREF only comes from payflow mode
         $this->payment_type = MODULE_PAYMENT_PAYPALWPP_PF_TEXT_TYPE;
         $this->transaction_id = $response['PNREF'];
-        $this->payment_status = 'Completed';
+        $this->payment_status = (MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE == 'Auth Only') ? 'Authorization' : 'Completed';
         $this->avs = 'AVSADDR: ' . $response['AVSADDR'] . ', AVSZIP: ' . $response['AVSZIP'] . ', IAVS: ' . $response['IAVS'];
         $this->cvv2 = $response['CVV2MATCH'];
         $this->amt = $order_amount . ' ' . $my_currency;
@@ -710,13 +726,15 @@ class paypalwpp extends base {
         // here we're in NVP mode
         $this->transaction_id = $response['TRANSACTIONID'];
         $this->payment_type = MODULE_PAYMENT_PAYPALWPP_DP_TEXT_TYPE;
-        $this->payment_status = 'Completed';
+        $this->payment_status = (MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE == 'Auth Only') ? 'Authorization' : 'Completed';
+        $this->pendingreason = (MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE == 'Auth Only') ? 'authorization' : '';
         $this->avs = $response['AVSCODE'];
         $this->cvv2 = $response['CVV2MATCH'];
         $this->correlationid = $response['CORRELATIONID'];
         $this->payment_time = urldecode($response['TIMESTAMP']);
         $this->amt = urldecode($response['AMT'] . ' ' . $response['CURRENCYCODE']);
         $this->auth_code = (isset($this->response['AUTHCODE'])) ? $this->response['AUTHCODE'] : $this->response['TOKEN'];
+        $this->transactiontype = 'cart';
       }
     }
   }
@@ -727,8 +745,8 @@ class paypalwpp extends base {
     global $insert_id, $db, $order;
     // add a new OSH record for this order's PP details
     $commentString = "Transaction ID: :transID: " . 
-		                 (isset($this->responsedata['PPREF']) ? "\nPPRef: " . $this->responsedata['PPREF'] : "") . 
-										 (isset($this->responsedata['AUTHCODE'])? "\nAuthCode: " . $this->responsedata['AUTHCODE'] : "") . 
+                     (isset($this->responsedata['PPREF']) ? "\nPPRef: " . $this->responsedata['PPREF'] : "") . 
+                     (isset($this->responsedata['AUTHCODE'])? "\nAuthCode: " . $this->responsedata['AUTHCODE'] : "") . 
                                  "\nPayment Type: :pmtType: " . 
                                  "\nTimestamp: :pmtTime: " . 
                                  "\nPayment Status: :pmtStatus: " . 
@@ -749,9 +767,11 @@ class paypalwpp extends base {
 
 
 
-    // store the PayPal order meta data -- used for later matching and back-end processing services
-    $paypal_order = array('zen_order_id' => $insert_id,
+    // store the PayPal order meta data -- used for later matching and back-end processing activities
+    $paypal_order = array('order_id' => $insert_id,
                           'txn_type' => $this->transactiontype,
+                          'module_name' => $this->code,
+                          'module_mode' => MODULE_PAYMENT_PAYPALWPP_MODULE_MODE,
                           'reason_code' => $this->reasoncode,
                           'payment_type' => $this->payment_type,
                           'payment_status' => $this->payment_status,
@@ -786,7 +806,7 @@ class paypalwpp extends base {
                           'notify_version' => '0',
                           'verify_sign' =>'',
                           'date_added' => 'now()',
-                          'memo' => ''
+                          'memo' => '{Record generated by payment module}'
                          );
     zen_db_perform(TABLE_PAYPAL, $paypal_order);
 
@@ -810,13 +830,13 @@ class paypalwpp extends base {
     $output = '';
     $response = $this->_GetTransactionDetails($zf_order_id);
     //$response = $this->_TransactionSearch('2006-12-01T00:00:00Z', $zf_order_id);
-    $sql = "SELECT * from " . TABLE_PAYPAL . " WHERE zen_order_id = :orderID 
-            AND parent_txn_id = '' AND zen_order_id > 0 
+    $sql = "SELECT * from " . TABLE_PAYPAL . " WHERE order_id = :orderID 
+            AND parent_txn_id = '' AND order_id > 0 
             ORDER BY paypal_ipn_id DESC LIMIT 1";
     $sql = $db->bindVars($sql, ':orderID', $zf_order_id, 'integer');
     $ipn = $db->Execute($sql);
     if ($ipn->RecordCount() == 0) $ipn->fields = array(); 
-    require(DIR_FS_CATALOG . DIR_WS_MODULES . 'payment/paypal/paypalwpp_admin_notification.php');
+    if (file_exists(DIR_FS_CATALOG . DIR_WS_MODULES . 'payment/paypal/paypalwpp_admin_notification.php')) require(DIR_FS_CATALOG . DIR_WS_MODULES . 'payment/paypal/paypalwpp_admin_notification.php');
     return $output;
   }
   /**
@@ -826,7 +846,7 @@ class paypalwpp extends base {
     global $db, $messageStack, $doPayPal;
     $doPayPal = $this->paypal_init();
     // look up history on this order from PayPal table
-    $sql = "select * from " . TABLE_PAYPAL . " where zen_order_id = :orderID  AND parent_txn_id = '' ";
+    $sql = "select * from " . TABLE_PAYPAL . " where order_id = :orderID  AND parent_txn_id = '' ";
     $sql = $db->bindVars($sql, ':orderID', $oID, 'integer');
     $zc_ppHist = $db->Execute($sql);
     if ($zc_ppHist->RecordCount() == 0) return false;
@@ -850,7 +870,7 @@ class paypalwpp extends base {
     global $db, $messageStack, $doPayPal;
     $doPayPal = $this->paypal_init();
     // look up history on this order from PayPal table
-    $sql = "select * from " . TABLE_PAYPAL . " where zen_order_id = :orderID  AND parent_txn_id = '' ";
+    $sql = "select * from " . TABLE_PAYPAL . " where order_id = :orderID  AND parent_txn_id = '' ";
     $sql = $db->bindVars($sql, ':orderID', $oID, 'integer');
     $zc_ppHist = $db->Execute($sql);
     if ($zc_ppHist->RecordCount() == 0) return false;
@@ -922,18 +942,19 @@ class paypalwpp extends base {
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('PAYFLOW: Vendor', 'MODULE_PAYMENT_PAYPALWPP_PFVENDOR', '', 'Your merchant login ID that you created when you registered for the Payflow Pro account. This value is case-sensitive.', '6', '25', now())");
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added, set_function, use_function) values ('PAYFLOW: Password', 'MODULE_PAYMENT_PAYPALWPP_PFPASSWORD', '', 'The 6- to 32-character password that you defined while registering for the account. This value is case-sensitive.', '6', '25', now(), 'zen_cfg_password_input(', 'zen_cfg_password_display')");
 
-    $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, set_function, date_added) values ('PayPal Mode', 'MODULE_PAYMENT_PAYPALWPP_MODULE_MODE', 'PayPal', 'Which PayPal API system should be used for processing? <br /><u>Choices:</u><br /><font color=green>For choice #1, you need to supply <strong>API Settings</strong> above.</font><br /><strong>1. PayPal</strong> = Express Checkout with a regular PayPal account<br />or<br /><font color=green>for choices 2 &amp; 3 you need to supply <strong>PAYFLOW settings</strong>, below (and a Payflow account)</font><br /><strong>2. Payflow-UK</strong> = Website Payments Pro UK Payflow Edition<br /><strong>3. Payflow-US</strong> = Payflow Pro Gateway only<!--<br /><strong>4. PayflowUS+EC</strong> = Payflow Pro with Express Checkout-->', '6', '25',  'zen_cfg_select_option(array(\'PayPal\', \'Payflow-UK\', \'Payflow-US\'), ', now())");
+    $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, set_function, date_added) values ('PayPal Mode', 'MODULE_PAYMENT_PAYPALWPP_MODULE_MODE', 'PayPal', 'Which PayPal API system should be used for processing? <br /><u>Choices:</u><br /><font color=green>For choice #1, you need to supply <strong>API Settings</strong> above.</font><br /><strong>1. PayPal</strong> = Express Checkout with a regular PayPal account<br />or<br /><font color=green>for choices 2 &amp; 3 you need to supply <strong>PAYFLOW settings</strong>, below (and have a Payflow account)</font><br /><strong>2. Payflow-UK</strong> = Website Payments Pro UK Payflow Edition<br /><strong>3. Payflow-US</strong> = Payflow Pro Gateway only<!--<br /><strong>4. PayflowUS+EC</strong> = Payflow Pro with Express Checkout-->', '6', '25',  'zen_cfg_select_option(array(\'PayPal\', \'Payflow-UK\', \'Payflow-US\'), ', now())");
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, set_function, date_added) values ('Debug Mode', 'MODULE_PAYMENT_PAYPALWPP_DEBUGGING', 'Off', 'Would you like to enable debug mode?  A complete detailed log of failed transactions will be emailed to the store owner.', '6', '25', 'zen_cfg_select_option(array(\'Off\', \'Alerts Only\', \'Log File\', \'Log and Email\'), ', now())");
 
     $this->notify('NOTIFY_PAYMENT_PAYPALWPP_INSTALLED');
   }
 
   function keys() {
-    $keys_list = array('MODULE_PAYMENT_PAYPALWPP_STATUS', /*'MODULE_PAYMENT_PAYPALWPP_DIRECT_ENABLED', */'MODULE_PAYMENT_PAYPALWPP_SORT_ORDER', 'MODULE_PAYMENT_PAYPALWPP_ZONE', 'MODULE_PAYMENT_PAYPALWPP_ORDER_STATUS_ID', 'MODULE_PAYMENT_PAYPALWPP_ORDER_PENDING_STATUS_ID', 'MODULE_PAYMENT_PAYPALWPP_REFUNDED_STATUS_ID', 'MODULE_PAYMENT_PAYPALWPP_CONFIRMED_ADDRESS', 'MODULE_PAYMENT_PAYPALWPP_AUTOSELECT_CHEAPEST_SHIPPING', 'MODULE_PAYMENT_PAYPALWPP_SKIP_PAYMENT_PAGE', 'MODULE_PAYMENT_PAYPALWPP_NEW_ACCT_NOTIFY', 'MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE', 'MODULE_PAYMENT_PAYPALWPP_CURRENCY', 'MODULE_PAYMENT_PAYPALWPP_PAGE_STYLE', 'MODULE_PAYMENT_PAYPALWPP_APIUSERNAME', 'MODULE_PAYMENT_PAYPALWPP_APIPASSWORD', 'MODULE_PAYMENT_PAYPALWPP_APISIGNATURE', /*'MODULE_PAYMENT_PAYPALWPP_MODULE_MODE', */ /*'MODULE_PAYMENT_PAYPALWPP_PFPARTNER', 'MODULE_PAYMENT_PAYPALWPP_PFVENDOR', 'MODULE_PAYMENT_PAYPALWPP_PFUSER', 'MODULE_PAYMENT_PAYPALWPP_PFPASSWORD', */'MODULE_PAYMENT_PAYPALWPP_SERVER', 'MODULE_PAYMENT_PAYPALWPP_DEBUGGING');
-    if (IS_ADMIN_FLAG === true && ((isset($_GET['debug']) && $_GET['debug']=='on') || PAYPAL_DEV_MODE == 'true') || strstr(MODULE_PAYMENT_PAYPALWPP_MODULE_MODE, 'Payflow')) {
-      $keys_list[]='MODULE_PAYMENT_PAYPALWPP_DIRECT_ENABLED';
-      $keys_list[]='MODULE_PAYMENT_PAYPALWPP_MODULE_MODE';
+    $keys_list = array('MODULE_PAYMENT_PAYPALWPP_STATUS', /*'MODULE_PAYMENT_PAYPALWPP_DIRECT_ENABLED', */'MODULE_PAYMENT_PAYPALWPP_SORT_ORDER', 'MODULE_PAYMENT_PAYPALWPP_ZONE', 'MODULE_PAYMENT_PAYPALWPP_ORDER_STATUS_ID', 'MODULE_PAYMENT_PAYPALWPP_ORDER_PENDING_STATUS_ID', 'MODULE_PAYMENT_PAYPALWPP_REFUNDED_STATUS_ID', 'MODULE_PAYMENT_PAYPALWPP_CONFIRMED_ADDRESS', 'MODULE_PAYMENT_PAYPALWPP_AUTOSELECT_CHEAPEST_SHIPPING', 'MODULE_PAYMENT_PAYPALWPP_SKIP_PAYMENT_PAGE', 'MODULE_PAYMENT_PAYPALWPP_NEW_ACCT_NOTIFY', 'MODULE_PAYMENT_PAYPALWPP_TRANSACTION_MODE', 'MODULE_PAYMENT_PAYPALWPP_CURRENCY', 'MODULE_PAYMENT_PAYPALWPP_PAGE_STYLE', 'MODULE_PAYMENT_PAYPALWPP_APIUSERNAME', 'MODULE_PAYMENT_PAYPALWPP_APIPASSWORD', 'MODULE_PAYMENT_PAYPALWPP_APISIGNATURE', 'MODULE_PAYMENT_PAYPALWPP_MODULE_MODE', /*'MODULE_PAYMENT_PAYPALWPP_PFPARTNER', 'MODULE_PAYMENT_PAYPALWPP_PFVENDOR', 'MODULE_PAYMENT_PAYPALWPP_PFUSER', 'MODULE_PAYMENT_PAYPALWPP_PFPASSWORD', */'MODULE_PAYMENT_PAYPALWPP_SERVER', 'MODULE_PAYMENT_PAYPALWPP_DEBUGGING');
+    if (IS_ADMIN_FLAG === true && (PAYPAL_DEV_MODE == 'true' || strstr(MODULE_PAYMENT_PAYPALWPP_MODULE_MODE, 'Payflow'))) {
       $keys_list = array_merge($keys_list, array('MODULE_PAYMENT_PAYPALWPP_PFPARTNER', 'MODULE_PAYMENT_PAYPALWPP_PFVENDOR', 'MODULE_PAYMENT_PAYPALWPP_PFUSER', 'MODULE_PAYMENT_PAYPALWPP_PFPASSWORD'));
+    }
+    if (IS_ADMIN_FLAG === true && ((isset($_GET['debug']) && $_GET['debug']=='on') || PAYPAL_DEV_MODE == 'true')) {
+      $keys_list[]='MODULE_PAYMENT_PAYPALWPP_DIRECT_ENABLED';
     }
     return $keys_list;
   }
@@ -941,6 +962,14 @@ class paypalwpp extends base {
    * De-install this module
    */
   function remove() {
+    global $messageStack;
+    // cannot remove EC if DP installed:
+    if (defined('MODULE_PAYMENT_PAYPALDP_STATUS')) {
+      $messageStack->add_session('<strong>Sorry, you must remove Website Payments Pro (paypaldp) first.</strong> Website Payments Pro requires that you offer Express Checkout to your customers.<br /><a href="' . zen_href_link('modules.php?set=payment&module=paypaldp', '', 'NONSSL') . '">Click here to edit or remove your Website Payments Pro module.</a>' , 'error');
+      zen_redirect(zen_href_link(FILENAME_MODULES, 'set=payment&module=paypalwpp', 'NONSSL'));
+      return 'failed';
+    }
+
     global $db;
     $db->Execute("delete from " . TABLE_CONFIGURATION . " where configuration_key LIKE 'MODULE\_PAYMENT\_PAYPALWPP\_%'");
     $this->notify('NOTIFY_PAYMENT_PAYPALWPP_UNINSTALLED');
@@ -977,7 +1006,7 @@ class paypalwpp extends base {
       $token = ($token == '') ? date('m-d-Y-h-i') : $token; // or time()
       $token .= $tokenHash;
       $file = $this->_logDir . '/' . 'Paypal_Action_' . $token . '.log';
-      if (defined('PAYPAL_DEV_MODE') && PAYPAL_DEV_MODE == 'true') $file = $this->_logDir.'/'.'Paypal_Debug_' . $token . '.log';
+      if (defined('PAYPAL_DEV_MODE') && PAYPAL_DEV_MODE == 'true') $file = $this->_logDir . '/' . $this->code . '_Paypal_Debug_' . $token . '.log';
       $fp = @fopen($file, 'a');
       @fwrite($fp, date('M-d-Y h:i:s') . "\n" . $stage . "\n" . $message . "\n=================================\n\n");
       @fclose($fp);
@@ -991,7 +1020,7 @@ class paypalwpp extends base {
     if (MODULE_PAYMENT_PAYPALWPP_DEBUGGING == 'Log and Email') {
       $data =  urldecode($data) . "\n\n";
       if ($useSession) $data .= "\nSession data: " . print_r($_SESSION, true);
-      zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, $subject, $data, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS);
+      zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, $subject, $data, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>nl2br($this->code . "\n" . $data)), 'debug');
     }
   }
   /**
@@ -1001,13 +1030,12 @@ class paypalwpp extends base {
     $ec_uses_gateway = (defined('MODULE_PAYMENT_PAYPALWPP_PRO20_EC_METHOD') && MODULE_PAYMENT_PAYPALWPP_PRO20_EC_METHOD == 'Payflow') ? true : false;
     $nvp = (!($ec_uses_gateway) && MODULE_PAYMENT_PAYPALWPP_APIPASSWORD != '' && MODULE_PAYMENT_PAYPALWPP_APISIGNATURE != '') ? true : false;
     $ec = ($nvp && ($this->in_special_checkout() || $_GET['type'] == 'ec')) ? true : false;
-    if (substr(MODULE_PAYMENT_PAYPALWPP_MODULE_MODE,0,7) == 'Payflow' && !$ec) {
+    if (substr(MODULE_PAYMENT_PAYPALWPP_MODULE_MODE,0,7) == 'Payflow'/* && !$ec*/) {
       $doPayPal = new paypal_curl(array('mode' => 'payflow',
                                         'user' =>   trim(MODULE_PAYMENT_PAYPALWPP_PFUSER),
                                         'vendor' => trim(MODULE_PAYMENT_PAYPALWPP_PFVENDOR),
                                         'partner'=> trim(MODULE_PAYMENT_PAYPALWPP_PFPARTNER),
                                         'pwd' =>    trim(MODULE_PAYMENT_PAYPALWPP_PFPASSWORD),
-                                        'certificationId' => $this->payflowCertificationId,
                                         'server' => MODULE_PAYMENT_PAYPALWPP_SERVER));
       $doPayPal->_endpoints = array('live'    => 'https://payflowpro.verisign.com/transaction',
                                     'sandbox' => 'https://pilot-payflowpro.verisign.com/transaction');
@@ -1016,7 +1044,7 @@ class paypalwpp extends base {
                                         'user' => trim(MODULE_PAYMENT_PAYPALWPP_APIUSERNAME),
                                         'pwd' =>  trim(MODULE_PAYMENT_PAYPALWPP_APIPASSWORD),
                                         'signature' => trim(MODULE_PAYMENT_PAYPALWPP_APISIGNATURE),
-                                        'version' => '2.3',
+                                        'version' => '3.2',
                                         'server' => MODULE_PAYMENT_PAYPALWPP_SERVER));
       $doPayPal->_endpoints = array('live'    => 'https://api-3t.paypal.com/nvp',
                                     'sandbox' => 'https://api.sandbox.paypal.com/nvp');
@@ -1052,7 +1080,7 @@ class paypalwpp extends base {
       $paypal_url = 'https://www.sandbox.paypal.com/cgi-bin/webscr';
        // for UK sandbox -- NOTE: this system is intermittently flakey ... and if it's down, odd redirects occur.
       if (substr(MODULE_PAYMENT_PAYPALWPP_MODULE_MODE,0,7) == 'Payflow') {
-        $paypal_url = 'https://test-expresscheckout.paypal.com/cgi-bin/webscr';
+      //  $paypal_url = 'https://test-expresscheckout.paypal.com/cgi-bin/webscr';
       }
     }
     return $paypal_url;
@@ -1086,7 +1114,7 @@ class paypalwpp extends base {
     }
 
     // look up history on this order from PayPal table
-    $sql = "select * from " . TABLE_PAYPAL . " where zen_order_id = :orderID  AND parent_txn_id = '' ";
+    $sql = "select * from " . TABLE_PAYPAL . " where order_id = :orderID  AND parent_txn_id = '' ";
     $sql = $db->bindVars($sql, ':orderID', $oID, 'integer');
     $zc_ppHist = $db->Execute($sql);
     if ($zc_ppHist->RecordCount() == 0) return false;
@@ -1143,7 +1171,7 @@ class paypalwpp extends base {
       }
     }
     // look up history on this order from PayPal table
-    $sql = "select * from " . TABLE_PAYPAL . " where zen_order_id = :orderID  AND parent_txn_id = '' ";
+    $sql = "select * from " . TABLE_PAYPAL . " where order_id = :orderID  AND parent_txn_id = '' ";
     $sql = $db->bindVars($sql, ':orderID', $oID, 'integer');
     $zc_ppHist = $db->Execute($sql);
     if ($zc_ppHist->RecordCount() == 0) return false;
@@ -1206,7 +1234,7 @@ class paypalwpp extends base {
       }
     }
     // look up history on this order from PayPal table
-    $sql = "select * from " . TABLE_PAYPAL . " where zen_order_id = :orderID  AND parent_txn_id = '' ";
+    $sql = "select * from " . TABLE_PAYPAL . " where order_id = :orderID  AND parent_txn_id = '' ";
     $sql = $db->bindVars($sql, ':orderID', $oID, 'integer');
     $zc_ppHist = $db->Execute($sql);
     if ($zc_ppHist->RecordCount() == 0) return false;
@@ -1255,7 +1283,7 @@ class paypalwpp extends base {
       }
     }
     // look up history on this order from PayPal table
-    $sql = "select * from " . TABLE_PAYPAL . " where zen_order_id = :orderID  AND parent_txn_id = '' ";
+    $sql = "select * from " . TABLE_PAYPAL . " where order_id = :orderID  AND parent_txn_id = '' ";
     $sql = $db->bindVars($sql, ':orderID', $oID, 'integer');
     $sql = $db->bindVars($sql, ':transID', $voidAuthID, 'string');
     $zc_ppHist = $db->Execute($sql);
@@ -1324,7 +1352,7 @@ class paypalwpp extends base {
    * Calculate the amount based on acceptable currencies
    */
   function calc_order_amount($amount, $paypalCurrency, $applyFormatting = false) {
-      global $currencies;
+    global $currencies;
     $amount = ($amount) * $currencies->get_value($paypalCurrency);
     return ($applyFormatting ? number_format($amount, $currencies->get_decimal_places($paypalCurrency)) : $amount);
   }
@@ -1380,11 +1408,12 @@ class paypalwpp extends base {
       if ($order_totals[$i]['code'] == 'ot_tax')      $optionsST['TAXAMT']      = round($order_totals[$i]['value'],2);
       if ($order_totals[$i]['code'] == 'ot_shipping') $optionsST['SHIPPINGAMT'] = round($order_totals[$i]['value'],2);
       if ($order_totals[$i]['code'] == 'ot_total')    $optionsST['AMT']         = round($order_totals[$i]['value'],2);
+      $optionsST['HANDLINGAMT'] = 0;
       global $$order_totals[$i]['code'];
-      if ($$order_totals[$i]['code']->credit_class == true) $creditsApplied += round($order_totals[$i]['value'],2);
+      if (isset($$order_totals[$i]['code']->credit_class) && $$order_totals[$i]['code']->credit_class == true) $creditsApplied += round($order_totals[$i]['value'],2);
       // treat all other OT's as if they're related to handling fees
-      if (!in_array($order_totals[$i]['code'], array('ot_total','ot_subtotal','ot_tax','ot_total')) 
-          && !($$order_totals[$i]['code']->credit_class)) {
+      if (!in_array($order_totals[$i]['code'], array('ot_total','ot_subtotal','ot_tax','ot_shipping')) 
+          && !(isset($$order_totals[$i]['code']->credit_class) && $$order_totals[$i]['code']->credit_class == true)) {
           $optionsST['HANDLINGAMT'] += $order_totals[$i]['value'];
       }
     }
@@ -1461,7 +1490,7 @@ class paypalwpp extends base {
     }
 
     // handle discounts such as gift certificates and coupons
-    if ($credits_applied > 0) {
+    if ($creditsApplied > 0) {
       $optionsST['HANDLINGAMT'] -= $creditsApplied;
     }
 
@@ -1469,12 +1498,20 @@ class paypalwpp extends base {
     $optionsST['ITEMAMT'] += $onetimeSum;
 
     //ensure things are not negative
-    $optionsST['HANDLINGAMT'] = abs($optionsST['HANDLINGAMT']);
+    $optionsST['HANDLINGAMT'] = abs(strval($optionsST['HANDLINGAMT']));
+
+    // ensure all numbers are non-negative
+    if (is_array($optionsST)) foreach ($optionsST as $key=>$value) {
+      $optionsST[$key] = abs(strval($value));
+    }
+    if (is_array($optionsLI)) foreach ($optionsLI as $key=>$value) {
+      if (strstr($key, 'AMT')) $optionsLI[$key] = abs(strval($value));
+    }
 
     // subtotals have to add up to AMT
     // Thus, if there is a discrepancy, make adjustment to HANDLINGAMT:
     $st = $optionsST['ITEMAMT'] + $optionsST['TAXAMT'] + $optionsST['SHIPPINGAMT'] + $optionsST['HANDLINGAMT'];
-    if ($st != $optionsST['AMT']) $optionsST['HANDLINGAMT'] += ($optionsST['AMT'] - $st);
+    if ($st != $optionsST['AMT']) $optionsST['HANDLINGAMT'] += strval($optionsST['AMT'] - $st);
 
 
 /*  //PayPal API spec contradicts itself ... and apparently neither of these "requirements" are enforced. 
@@ -1489,41 +1526,31 @@ class paypalwpp extends base {
     if (!isset($optionsST['SHIPPINGAMT'])) $optionsST['SHIPPINGAMT'] = 0;
     if (!isset($optionsST['HANDLINGAMT'])) $optionsST['HANDLINGAMT'] = 0;
 */
-    if (abs($optionsST['HANDLINGAMT']) == 0) unset($optionsST['HANDLINGAMT']);
 
     // Since the PayPal spec cannot handle mathematically mismatched values caused by one-time charges,
     // must drop line-item details if any one-time charges apply to this order:
     // if there are any discounts in this order, do NOT supply line-item details
     if ($onetimeSum > 0) $optionsLI = array();
 
-
     // Do sanity check -- if any of the line-item subtotal math doesn't add up properly, skip line-item details,
     // so that the order can go through even though PayPal isn't being flexible to handle Zen Cart's diversity
     for ($j=0; $j<$k; $j++) {
       $itemAMT = $optionsLI["L_AMT$j"];
-		  $itemTAX = $optionsLI["L_TAXAMT$j"];
+      $itemTAX = $optionsLI["L_TAXAMT$j"];
       $itemQTY = $optionsLI["L_QTY$j"];
       $sumOfLineItems += ($itemQTY * $itemAMT);
       $sumOfLineTax += round(($itemQTY * $itemTAX),2);
     }
 
-    if ($optionsST['ITEMAMT'] != $sumOfLineItems) {
+    if ((float)$optionsST['ITEMAMT'] != (float)strval($sumOfLineItems)) {
       $optionsLI = array();
-      $this->zcLog('getLineItemDetails 1', 'Order Subtotal does not match sum of line-item prices. Line-item-details skipped.' . "\n" . $optionsST['ITEMAMT'] . ' ' . $sumOfLineItems);
+      $this->zcLog('getLineItemDetails 1', 'Order Subtotal does not match sum of line-item prices. Line-item-details skipped.' . "\n" . (float)$optionsST['ITEMAMT'] . ' ' . (float)$sumOfLineItems);
       //die('ITEMAMT != $sumOfLineItems ' . $optionsST['ITEMAMT'] . ' ' . $sumOfLineItems);
     }
-    if ($optionsST['TAXAMT']  != $sumOfLineTax) {
+    if ((float)$optionsST['TAXAMT']  != (float)strval($sumOfLineTax)) {
       $optionsLI = array();
       $this->zcLog('getLineItemDetails 2', 'Tax Subtotal does not match sum of taxes for line-items. Line-item-details skipped.' . "\n" . $optionsST['TAXAMT'] . ' ' . $sumOfLineTax);
       //die('TAXAMT != $sumofLineTax ' . $optionsST['TAXAMT'] . ' ' . $sumOfLineTax);
-    }
-
-    // ensure all numbers are non-negative
-    if (is_array($optionsST)) foreach ($optionsST as $key=>$value) {
-      $optionsST[$key] = abs($value);
-    }
-    if (is_array($optionsLI)) foreach ($optionsLI as $key=>$value) {
-      if (strstr($key, 'AMT')) $optionsLI[$key] = abs($value);
     }
 
     $this->zcLog('getLineItemDetails 3', 'LineItemDetails: ' . "\n" . ($creditsApplied ? 'Credits apply to this order, so all line-item details are NOT being submitted. Thus, the following data is REDUNDANT' . "\n" : '') . 'Details:' . print_r(array_merge($optionsST, $optionsLI), true) . "\n\n" . 'DEFAULT_CURRENCY = ' . DEFAULT_CURRENCY  . "\nSESSION['currency'] = " . $_SESSION['currency'] . "\n" . "order->info['currency'] = " . $order->info['currency'] . "\n\$currencies->currencies[\$_SESSION['currency']]['value'] = " . $currencies->currencies[$_SESSION['currency']]['value'] . "\n" . print_r($currencies, true));
@@ -1539,13 +1566,13 @@ class paypalwpp extends base {
     }
 
     // if there are any discounts in this order, do not supply subtotals or line-item details
-    if ($creditsApplied > 0) return array();
+    if (strval($creditsApplied) > 0) return array();
     //$this->zcLog('getLineItemDetails 6', 'no credits - okay');
 
     // if subtotals are not adding up correctly, then skip sending any line-item or subtotal details to PayPal
-    $st = round($optionsST['ITEMAMT'] + $optionsST['TAXAMT'] + $optionsST['SHIPPINGAMT'] + $optionsST['HANDLINGAMT'],2);
-    $stDiff = ($optionsST['AMT'] - $st);
-    $stDiffRounded = (abs($st) - abs(round($optionsST['AMT'],2)));
+    $st = round(strval($optionsST['ITEMAMT'] + $optionsST['TAXAMT'] + $optionsST['SHIPPINGAMT'] + $optionsST['HANDLINGAMT']),2);
+    $stDiff = strval($optionsST['AMT'] - $st);
+    $stDiffRounded = strval(abs($st) - abs(round($optionsST['AMT'],2)));
 
     // tidy up all values so that they comply with proper format (number_format(xxxx,2) for PayPal US use )
     if (!defined('PAYPALWPP_SKIP_LINE_ITEM_DETAIL_FORMATTING') || PAYPALWPP_SKIP_LINE_ITEM_DETAIL_FORMATTING != 'true') {
@@ -1561,6 +1588,8 @@ class paypalwpp extends base {
 
     if ( $stDiffRounded != 0) return array(); //die('bad subtotals'); //return array();
     $this->zcLog('getLineItemDetails 8', 'subtotals balance - okay');
+
+    if (abs($optionsST['HANDLINGAMT']) == 0) unset($optionsST['HANDLINGAMT']);
 
     // Send Subtotal and LineItem results back to be submitted to PayPal
     return array_merge($optionsST, $optionsLI);
@@ -1583,6 +1612,16 @@ class paypalwpp extends base {
     // init new order object
     require(DIR_WS_CLASSES . 'order.php');
     $order = new order;
+
+    // load the selected shipping module so that shipping taxes can be assessed
+    require(DIR_WS_CLASSES . 'shipping.php');
+    $shipping_modules = new shipping($_SESSION['shipping']);
+
+    // load OT modules so that discounts and taxes can be assessed
+    require(DIR_WS_CLASSES . 'order_total.php');
+    $order_total_modules = new order_total;
+    $order_totals = $order_total_modules->pre_confirmation_check();
+    $order_totals = $order_total_modules->process();
 
     $doPayPal = $this->paypal_init();
     $options = array();
@@ -1619,15 +1658,18 @@ class paypalwpp extends base {
      * (if not logged in, we need address information only to build the customer record)
      */
     if ($_SESSION['cart']->get_content_type() == 'virtual' && isset($_SESSION['customer_id']) && $_SESSION['customer_id'] > 0) {
+      $this->zcLog('ec-step1-addr_check', "cart contents is virtual and customer is logged in ... therefore options['NOSHIPPING']=1");
       $options['NOSHIPPING'] = 1;
     } else {
+      $this->zcLog('ec-step1-addr_check', "cart contents is not all virtual or customer is not logged in ... therefore will be submitting address details");
       // If we are in a "mark" flow and the customer has a usable address, set the addressoverride variable to 1. This will
       // override the shipping address in PayPal with the shipping address that is selected in Zen Cart.
 
       if (($address_arr = $this->getOverrideAddress()) !== false) {
         $address_error = false;
-        foreach(array('entry_firstname','entry_lastname','entry_street_address','entry_city','entry_postcode','zone_code','countries_iso_code_2') as $key=>$value) {
+        foreach(array('entry_firstname','entry_lastname','entry_street_address','entry_city','entry_postcode','zone_code','countries_iso_code_2') as $key) {
           if ($address_arr[$key] == '') $address_error = true;
+          if ($address_error == true) $this->zcLog('ec-step1-addr_check2', '$address_error = true because ' .$key . ' is blank.');
         }
         if ($address_error == false) {
           // set the override var
@@ -1644,7 +1686,8 @@ class paypalwpp extends base {
         }
       }
 
-      // Do we require a "confirmed" shipping address ?
+      $this->zcLog('ec-step1-addr_check3', 'address details from override check:'.print_r($address_arr, true));
+     // Do we require a "confirmed" shipping address ?
       if (MODULE_PAYMENT_PAYPALWPP_CONFIRMED_ADDRESS == 'Yes') {
         $options['REQCONFIRMSHIPPING'] = 1;
       }
@@ -1666,7 +1709,7 @@ class paypalwpp extends base {
     $options['SOLUTIONTYPE'] = 'SOLE';     
 
     // debug
-    $this->zcLog('ec_step1 - 2 -submit', print_r(array_merge(array('RETURNURL' => $return_url, 'CANCELURL' => $cancel_url), $options), true));
+    $this->zcLog('ec_step1 - 2 -submit', print_r(array_merge(array('AMT' => number_format($order_amount, 2), 'RETURNURL' => $return_url, 'CANCELURL' => $cancel_url), $options), true));
 
     /**
      * Ask PayPal for the token with which to initiate communications
@@ -1768,6 +1811,8 @@ class paypalwpp extends base {
 
       // accomodate PayPal bug which incorrectly treats 'Yukon Territory' as YK instead of ISO standard of YT.
       if ($response['SHIPTOSTATE'] == 'YK') $response['SHIPTOSTATE'] = 'YT';
+      // same with Newfoundland
+      if ($response['SHIPTOSTATE'] == 'NF') $response['SHIPTOSTATE'] = 'NL';
 
       // process address details supplied
       $step2_shipto = array('ship_name'     => urldecode($response['SHIPTONAME']),
@@ -2071,7 +2116,7 @@ class paypalwpp extends base {
           $email_text .= EMAIL_CONTACT;
 
           // send the mail
-          zen_mail($paypal_ec_payer_info['payer_firstname'] . " " . $paypal_ec_payer_info['payer_lastname'], $paypal_ec_payer_info['payer_email'], EMAIL_SUBJECT, $email_text, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS);
+          zen_mail($paypal_ec_payer_info['payer_firstname'] . " " . $paypal_ec_payer_info['payer_lastname'], $paypal_ec_payer_info['payer_email'], EMAIL_SUBJECT, $email_text, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>nl2br($email_text)), 'welcome');
 
           // set the express checkout temp -- false means the account is no longer "only" for EC ... it'll be permanent
           $_SESSION['paypal_ec_temp'] = false;
@@ -2658,7 +2703,7 @@ class paypalwpp extends base {
   function _errorHandler($response, $operation = '', $ignore_codes = '') {
     global $messageStack, $doPayPal;
     $gateway_mode = (isset($response['PNREF']) && $response['PNREF'] != '');
-    $basicError = (!$response || (isset($response['RESULT']) && $response['RESULT'] != 0) || (isset($response['ACK']) && !strstr($response['ACK'], 'Success')));
+    $basicError = (!$response || (isset($response['RESULT']) && $response['RESULT'] != 0) || (isset($response['ACK']) && !strstr($response['ACK'], 'Success')) || (!isset($response['RESULT']) && !isset($response['ACK'])));
     $ignoreList = explode(',', str_replace(' ', '', $ignore_codes));
     foreach($ignoreList as $key=>$value) {
       if ($value != '' && $response['L_ERRORCODE0'] == $value) $basicError = false;
@@ -2683,9 +2728,9 @@ class paypalwpp extends base {
           if ($response['L_ERRORCODE0'] == 10736) $errorText = MODULE_PAYMENT_PAYPALWPP_TEXT_ADDR_ERROR;
           if ($response['L_ERRORCODE0'] == 10752) $errorText = MODULE_PAYMENT_PAYPALWPP_TEXT_DECLINED;
 
-          $detailedMessage = ($errorText == MODULE_PAYMENT_PAYPALWPP_TEXT_GEN_ERROR || $this->enableDebugging || $response['CURL_ERRORS'] != '' || $this->emailAlerts) ? $errorNum . ' ' . urldecode(' ' . $response['L_SHORTMESSAGE0'] . ' - ' . $response['L_LONGMESSAGE0'] . ' ' . $response['CURL_ERRORS']) : '';
+          $detailedMessage = ($errorText == MODULE_PAYMENT_PAYPALWPP_TEXT_GEN_ERROR || $this->enableDebugging || $response['CURL_ERRORS'] != '' || $this->emailAlerts) ? $errorNum . ' ' . urldecode(' ' . $response['L_SHORTMESSAGE0'] . ' - ' . $response['L_LONGMESSAGE0'] . (isset($response['RESPMSG']) ? ' ' . $response['RESPMSG'] : '') . ' ' . $response['CURL_ERRORS']) : '';
           $detailedEmailMessage = ($detailedMessage == '') ? '' : MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_MESSAGE . urldecode($response['L_ERRORCODE0'] . "\n" . $response['L_SHORTMESSAGE0'] . "\n" . $response['L_LONGMESSAGE0'] . $response['L_ERRORCODE1'] . "\n" . $response['L_SHORTMESSAGE1'] . "\n" . $response['L_LONGMESSAGE1'] . $response['L_ERRORCODE2'] . "\n" . $response['L_SHORTMESSAGE2'] . "\n" . $response['L_LONGMESSAGE2'] . ($response['CURL_ERRORS'] != '' ? "\n" . $response['CURL_ERRORS'] : '') . "\n\n" . 'Zen Cart message: ' . $errorText);
-          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$detailedMessage));
+          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$detailedMessage), 'paymentalert');
           $this->terminateEC($errorText . ' (' . $errorNum . ') ' . $detailedMessage, true);
           return true;
         }
@@ -2697,7 +2742,7 @@ class paypalwpp extends base {
           if ($this->enableDebugging) {
             $this->_doDebug('PayPal Error Log - ec_step2()', "In function: ec_step2()\r\n\r\nValue List:\r\n" . str_replace('&',"\r\n", urldecode($doPayPal->_sanitizeLog($doPayPal->_parseNameValueList($doPayPal->lastParamList)))) . "\r\n\r\nResponse:\r\n" . urldecode(print_r($response, true)));
           }
-          $this->terminateEC(MODULE_PAYMENT_PAYPALWPP_GEN_ERROR . ' (' . $response['L_ERRORCODE0'] . ' ' . urldecode($response['L_SHORTMESSAGE0'] . $response['RESULT']) . ')', true);
+          $this->terminateEC(MODULE_PAYMENT_PAYPALWPP_TEXT_GEN_ERROR . ' (' . $response['L_ERRORCODE0'] . ' ' . urldecode($response['L_SHORTMESSAGE0'] . $response['RESULT']) . ')', true);
           return true;
         }
         break;
@@ -2724,7 +2769,7 @@ class paypalwpp extends base {
 
           $detailedMessage = ($errorText == MODULE_PAYMENT_PAYPALWPP_INVALID_RESPONSE || $this->enableDebugging || $response['CURL_ERRORS'] != '' || $this->emailAlerts) ? $errorNum . ' ' . urldecode(' ' . $response['L_SHORTMESSAGE0'] . ' - ' . $response['L_LONGMESSAGE0'] . $response['RESULT'] . ' ' . $response['CURL_ERRORS']) : '';
           $detailedEmailMessage = ($detailedMessage == '') ? '' : MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_MESSAGE . urldecode($response['L_ERRORCODE0'] . "\n" . $response['L_SHORTMESSAGE0'] . "\n" . $response['L_LONGMESSAGE0'] . $response['L_ERRORCODE1'] . "\n" . $response['L_SHORTMESSAGE1'] . "\n" . $response['L_LONGMESSAGE1'] . $response['L_ERRORCODE2'] . "\n" . $response['L_SHORTMESSAGE2'] . "\n" . $response['L_LONGMESSAGE2'] . ($response['CURL_ERRORS'] != '' ? "\n" . $response['CURL_ERRORS'] : '') . "\n\n" . 'Zen Cart message: ' . $errorText);
-          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$detailedMessage));
+          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$detailedMessage), 'paymentalert');
           $this->terminateEC(($detailedEmailMessage == '' ? $errorText . ' (' . urldecode($response['L_SHORTMESSAGE0'] . $response['RESULT']) . ') ' : $detailedMessage), true);
           return true;
         }
@@ -2752,8 +2797,8 @@ class paypalwpp extends base {
           if ($response['RESPMSG'] != '') $errorText = MODULE_PAYMENT_PAYPALWPP_TEXT_DECLINED;
 
           $detailedMessage = ($errorText == MODULE_PAYMENT_PAYPALWPP_INVALID_RESPONSE || $errorText == MODULE_PAYMENT_PAYPALWPP_TEXT_DECLINED || $this->enableDebugging || $response['CURL_ERRORS'] != '' || $this->emailAlerts) ? $errorNum . ' ' . urldecode(' ' . $response['L_SHORTMESSAGE0'] . ' - ' . $response['L_LONGMESSAGE0'] . ' ' . $response['CURL_ERRORS']) : '';
-          $detailedEmailMessage = ($detailedMessage == '') ? '' : MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_MESSAGE . urldecode($response['L_ERRORCODE0'] . "\n" . $response['L_SHORTMESSAGE0'] . "\n" . $response['L_LONGMESSAGE0'] . $response['L_ERRORCODE1'] . "\n" . $response['L_SHORTMESSAGE1'] . "\n" . $response['L_LONGMESSAGE1'] . $response['L_ERRORCODE2'] . "\n" . $response['L_SHORTMESSAGE2'] . "\n" . $response['L_LONGMESSAGE2'] . ($response['CURL_ERRORS'] != '' ? "\n" . $response['CURL_ERRORS'] : '') . "\n\n" . 'Zen Cart message: ' . $errorText);
-          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$detailedMessage));
+          $detailedEmailMessage = ($detailedMessage == '') ? '' : MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_MESSAGE . urldecode($response['L_ERRORCODE0'] . "\n" . $response['L_SHORTMESSAGE0'] . "\n" . $response['L_LONGMESSAGE0'] . $response['L_ERRORCODE1'] . "\n" . $response['L_SHORTMESSAGE1'] . "\n" . $response['L_LONGMESSAGE1'] . $response['L_ERRORCODE2'] . "\n" . $response['L_SHORTMESSAGE2'] . "\n" . $response['L_LONGMESSAGE2'] . ($response['CURL_ERRORS'] != '' ? "\n" . $response['CURL_ERRORS'] : '') . "\n\n" . 'Zen Cart message: ' . $detailedMessage . "\n\n" . 'Transaction Response Details: ' . print_r($response, true) . "\n\n" . 'Transaction Submission: ' . urldecode($doPayPal->_sanitizeLog($doPayPal->_parseNameValueList($doPayPal->lastParamList), true)));
+          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>nl2br($detailedEmailMessage)), 'paymentalert');
           $this->terminateEC(($detailedEmailMessage == '' ? $errorText . ' (' . $errorNum . ') ' : $detailedMessage), ($gateway_mode ? true : false), FILENAME_CHECKOUT_PAYMENT);
           return true;
         }
@@ -2850,8 +2895,8 @@ class paypalwpp extends base {
           $errorText = MODULE_PAYMENT_PAYPALWPP_TEXT_GEN_API_ERROR;
           $errorNum .= ' (' . urldecode($response['L_SHORTMESSAGE0'] . ' ' . $response['RESPMSG']) . ') ' . $response['L_ERRORCODE0'];
           $detailedMessage = ($errorText == MODULE_PAYMENT_PAYPALWPP_TEXT_GEN_API_ERROR || $errorText == MODULE_PAYMENT_PAYPALWPP_TEXT_DECLINED || $this->enableDebugging || $response['CURL_ERRORS'] != '' || $this->emailAlerts) ? urldecode(' ' . $response['L_SHORTMESSAGE0'] . ' - ' . $response['L_LONGMESSAGE0'] . ' ' . $response['CURL_ERRORS']) : '';
-          $detailedEmailMessage = ($detailedMessage == '') ? '' : MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_MESSAGE . urldecode($response['L_ERRORCODE0'] . "\n" . $response['L_SHORTMESSAGE0'] . "\n" . $response['L_LONGMESSAGE0'] . $response['L_ERRORCODE1'] . "\n" . $response['L_SHORTMESSAGE1'] . "\n" . $response['L_LONGMESSAGE1'] . $response['L_ERRORCODE2'] . "\n" . $response['L_SHORTMESSAGE2'] . "\n" . $response['L_LONGMESSAGE2'] . ($response['CURL_ERRORS'] != '' ? "\n" . $response['CURL_ERRORS'] : '') . "\n\n" . 'Zen Cart message: ' . $errorText);
-          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>$detailedMessage));
+          $detailedEmailMessage = ($detailedMessage == '') ? '' : MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_MESSAGE . urldecode($response['L_ERRORCODE0'] . "\n" . $response['L_SHORTMESSAGE0'] . "\n" . $response['L_LONGMESSAGE0'] . $response['L_ERRORCODE1'] . "\n" . $response['L_SHORTMESSAGE1'] . "\n" . $response['L_LONGMESSAGE1'] . $response['L_ERRORCODE2'] . "\n" . $response['L_SHORTMESSAGE2'] . "\n" . $response['L_LONGMESSAGE2'] . ($response['CURL_ERRORS'] != '' ? "\n" . $response['CURL_ERRORS'] : '') . "\n\n" . 'Zen Cart message: ' . $detailedMessage . "\n\n" . 'Transaction Response Details: ' . print_r($response, true) . "\n\n" . 'Transaction Submission: ' . urldecode($doPayPal->_sanitizeLog($doPayPal->_parseNameValueList($doPayPal->lastParamList), true)));
+          if ($detailedEmailMessage != '') zen_mail(STORE_NAME, STORE_OWNER_EMAIL_ADDRESS, MODULE_PAYMENT_PAYPALWPP_TEXT_EMAIL_ERROR_SUBJECT . ' (' . $errorNum . ')', $detailedMessage, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS, array('EMAIL_MESSAGE_HTML'=>nl2br($detailedEmailMessage)), 'paymentalert');
           $messageStack->add_session($errorText . $errorNum . $detailedMessage, 'error');
           return true;
         }
@@ -2861,17 +2906,19 @@ class paypalwpp extends base {
 
   function tableCheckup() {
     global $db, $sniffer;
-    $fieldOkay = (method_exists($sniffer, 'field_type')) ? $sniffer->field_type(TABLE_PAYPAL, 'txn_id', 'varchar(20)', true) :-1;
+    $fieldOkay1 = (method_exists($sniffer, 'field_type')) ? $sniffer->field_type(TABLE_PAYPAL, 'txn_id', 'varchar(20)', true) : -1;
+    $fieldOkay2 = ($sniffer->field_exists(TABLE_PAYPAL, 'module_name')) ? true : -1;
+    $fieldOkay3 = ($sniffer->field_exists(TABLE_PAYPAL, 'order_id')) ? true : -1;
 
-    if ($fieldOkay == -1) {
+    if ($fieldOkay1 == -1) {
       $sql = "show fields from " . TABLE_PAYPAL;
       $result = $db->Execute($sql);
       while (!$result->EOF) {
         if  ($result->fields['Field'] == 'txn_id') {
           if  ($result->fields['Type'] == 'varchar(20)') {
-            return true; // exists and matches required type, so return with no error
+            $fieldOkay1 = true; // exists and matches required type, so skip to other checkup
           } else {
-            $fieldOkay = $result->fields['Type']; // doesn't match, so return what it "is"
+            $fieldOkay1 = $result->fields['Type']; // doesn't match, so return what it "is"
             break;
           }
         }
@@ -2879,8 +2926,8 @@ class paypalwpp extends base {
       }
     }
 
-    if ($fieldOkay !== true) {
-      // temporary fix to table structure for v1.3.7.x -- will remove with next release
+    if ($fieldOkay1 !== true) {
+      // temporary fix to table structure for v1.3.7.x -- may remove in later release
       $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " CHANGE payment_type payment_type varchar(40) NOT NULL default ''");
       $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " CHANGE txn_type txn_type varchar(40) NOT NULL default ''");
       $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " CHANGE payment_status payment_status varchar(32) NOT NULL default ''");
@@ -2897,6 +2944,13 @@ class paypalwpp extends base {
       $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " CHANGE receiver_email receiver_email varchar(128) NOT NULL default ''");
       $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " CHANGE txn_id txn_id varchar(20) NOT NULL default ''");
       $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " CHANGE parent_txn_id parent_txn_id varchar(20) default NULL");
+    }
+    if ($fieldOkay2 !== true) {
+      $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " ADD COLUMN module_name varchar(40) NOT NULL default '' after txn_type");
+      $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " ADD COLUMN module_mode varchar(40) NOT NULL default '' after module_name");
+    }
+    if ($fieldOkay3 !== true) {
+      $db->Execute("ALTER TABLE " . TABLE_PAYPAL . " CHANGE zen_order_id order_id int(11) NOT NULL default '0'");
     }
 
   }
