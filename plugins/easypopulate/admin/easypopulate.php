@@ -150,6 +150,7 @@ $ep_dlmethod = NULL;
 $chmod_check = true;
 $ep_stack_sql_error = false; // function returns true on any 1 error, and notifies user of an error
 $specials_print = EASYPOPULATE_SPECIALS_HEADING;
+$featured_print = EASYPOPULATE_FEATURED_HEADING;
 $replace_quotes = false; // langer - this is probably redundant now...retain here for now..
 $products_with_attributes = false; // langer - this will be redundant after html renovation
 // maybe below can go in array eg $ep_processed['attributes'] = true, etc.. cold skip all post-upload tasks on check if isset var $ep_processed.
@@ -390,6 +391,15 @@ if (zen_not_null($ep_dltype)) {
 			'v_date_added'      => $iii++,
 			'v_products_quantity'   => $iii++,
 			);
+		// shafiq - featured products added below
+		
+			$featured_array = array(
+			'v_featured_date_added' 	=> $iii++,
+			'v_featured_expires_date' 	=> $iii++,
+			'v_featured_date_available' 	=> $iii++,
+			);
+			
+		
 		
 		if ($products_with_attributes == true) {
 			//include attributes in full download if config is true
@@ -436,6 +446,9 @@ if (zen_not_null($ep_dltype)) {
 		}
 		$header_array['v_manufacturers_name'] = $iii++;
 		$filelayout = array_merge($filelayout, $header_array);
+		
+		// shafiq featured array merge
+		$filelayout = array_merge($filelayout,$featured_array);
 		
 		// build the categories name section of the array based on the number of categores the user wants to have
 		for($i=1;$i<$max_categories+1;$i++){
@@ -837,6 +850,32 @@ if ($ep_dlmethod == 'stream' or  $ep_dlmethod == 'tempfile'){
 			}
 		}
 		// langer - end specials
+		
+		// Shafiq - Start Featured Products
+		if (isset($filelayout['v_featured_date_added'])) {
+			
+			$featured_pro_query = ep_query("SELECT
+						featured_date_added,
+						expires_date,
+						featured_date_available
+				FROM
+						".TABLE_FEATURED."
+				WHERE
+				products_id = " . $row['v_products_id']);
+					
+			if (mysql_num_rows($featured_pro_query)) {
+				// we have a featured listing
+				$ep_specials = mysql_fetch_array($featured_pro_query);
+				$row['v_featured_date_added'] = $ep_specials['featured_date_added'];
+				$row['v_featured_expires_date'] = $ep_specials['expires_date'];
+				$row['v_featured_date_available'] = $ep_specials['featured_date_available'];
+			} else {
+				$row['v_featured_date_added'] = '';
+				$row['v_featured_expires_date'] = '';
+				$row['v_featured_date_available'] = '';
+			}
+		}
+		// Shafiq - end Featured Products
 		
 		// for the categories, we need to keep looping until we find the root category
 
@@ -1910,7 +1949,6 @@ if ((isset($_POST['localfile']) or $_GET['split']==2) or ((isset($_FILES['usrfl'
 						products_tax_class_id,
 						products_weight,
 						products_quantity,
-						master_categories_id,
 						manufacturers_id)
 							VALUES (
 								'".zen_db_input($v_products_image)."',";
@@ -1924,7 +1962,6 @@ if ((isset($_POST['localfile']) or $_GET['split']==2) or ((isset($_FILES['usrfl'
 									'".zen_db_input($v_tax_class_id)."',
 									'".zen_db_input($v_products_weight)."',
 									'".zen_db_input($v_products_quantity)."',
-									'".zen_db_input($v_categories_id)."',
 									'$v_manufacturer_id')
 								";
 								//echo 'New product SQL:'.$query.'<br />';
@@ -1962,7 +1999,6 @@ if ((isset($_POST['localfile']) or $_GET['split']==2) or ((isset($_FILES['usrfl'
 						', products_date_added= ' . $v_date_added .
 						', products_last_modified=CURRENT_TIMESTAMP' .
 						', products_quantity="' . zen_db_input($v_products_quantity) .  
-						'" ,master_categories_id="' . zen_db_input($v_categories_id) . 
 						'" ,manufacturers_id=' . $v_manufacturer_id . 
 						' , products_status=' . zen_db_input($v_db_status) . '
 						WHERE
@@ -2347,16 +2383,83 @@ if ((isset($_POST['localfile']) or $_GET['split']==2) or ((isset($_FILES['usrfl'
 			}
 			// end specials for this product
 		
+
+	/** Shafiq Featured Product Listing Code
+			* Featured Product Listings
+			* if a null value in  featured date added, do not add or update. 
+			*/
+			if (isset($v_featured_date_added) && zen_not_null($v_featured_date_added)) {
+				// column is in upload file, and date is not empty
+				// if null (set further above), set forever, else get raw date
+				$has_featured == true;
+				$v_featured_date_available = zen_not_null($v_featured_date_available) ? ep_datoriser($v_featured_date_available) : '0001-01-01';
+				$v_featured_expires_date = zen_not_null($v_featured_expires_date) ? ep_datoriser($v_featured_expires_date) : '0001-01-01';
+				
+				//Check if this product already has a special
+				$featured = ep_query(  "SELECT products_id
+										FROM " . TABLE_FEATURED . "
+										WHERE products_id = ". $v_products_id);
+																
+				if (mysql_num_rows($featured) == 0) {
+					// not in db
+					// insert new into featured
+					$sql =  "INSERT INTO " . TABLE_FEATURED . "
+											(products_id,
+											featured_date_added,
+											featured_last_modified,
+											featured_date_available,
+											expires_date,
+											status)
+											VALUES (
+													'" . (int)$v_products_id . "',
+													'" . $v_featured_date_added . "',
+													now(),
+													'" . $v_featured_date_available . "',
+													'" . $v_featured_expires_date . "',
+													'1')";
+					$result = ep_query($sql);
+					$featured_print .= sprintf(EASYPOPULATE_FEATURED_NEW, $v_products_model, substr(strip_tags($v_products_name[$epdlanguage_id]), 0, 10), $v_products_price , $v_featured_date_available, $v_featured_expires_date);
+								
+				} else {
+				// existing product
+				// just make an update
+					$sql =  "UPDATE " . TABLE_FEATURED . " SET
+								featured_date_added = '" . $v_featured_date_added . "',
+								featured_last_modified = now(),
+								featured_date_available = '" . $v_featured_date_available . "',
+								expires_date = '" . $v_featured_expires_date . "',
+								status = '1'
+								WHERE products_id = '" . (int)$v_products_id . "'";
+						//echo $sql . "<br>";
+					$result = ep_query($sql);
+					$featured_print .= sprintf(EASYPOPULATE_FEATURED_UPDATE, $v_products_model, substr(strip_tags($v_products_name[$epdlanguage_id]), 0, 10), $v_products_price , $v_featured_date_available, $v_featured_expires_date);
+				}
+				// we still have our featured here..
+			}
+			// end featured for this product
 		} else {
 			// this record is missing the product_model
 			$display_output .= EASYPOPULATE_DISPLAY_RESULT_NO_MODEL;
 			foreach ($items as $col => $langer) {
-				if ($col == $filelayout['v_products_model']) continue;
+			if ($col == $filelayout['v_products_model']) continue;
 				$display_output .= print_el($langer);
 			}
 		}
 		// end of row insertion code
 	}
+
+	
+
+	
+	
+	
+	
+	/** Shafiq Feature Product Listing code Ends 
+	
+	**/	
+	
+	
+	
 	
 	/**
 	* Post-upload tasks start
@@ -2454,7 +2557,7 @@ if ($_GET['dross'] == 'delete') {
 		// -->
 	</script>
 </head>
-<body onload="init()">
+<body onLoad="init()">
 <!-- header //-->
 <?php require(DIR_WS_INCLUDES . 'header.php'); ?>
 <!-- header_eof //-->
@@ -2548,6 +2651,9 @@ if ($_GET['dross'] == 'delete') {
 							echo $display_output; // upload results
 							if (strlen($specials_print) > strlen(EASYPOPULATE_SPECIALS_HEADING)) {
 								echo '<br />' . $specials_print . EASYPOPULATE_SPECIALS_FOOTER; // specials summary
+							}
+							if (strlen($featured_print) > strlen(EASYPOPULATE_FEATURED_HEADING)) {
+								echo '<br />' . $featured_print . EASYPOPULATE_FEATURED_FOOTER; // featured product summary
 							}
 ?>
 						</td>

@@ -1,7 +1,18 @@
+
+
+
+
+
+**** This version is only update version. You need to install easypopulate version 1.2.5.5
+
+
+
+
+
 -------------------------------------------------
-Easy Populate v1.2.5.5
+Easy Populate v1.2.5.4
 -------------------------------------------------
-Last updated: December 1, 2006
+Last updated: September 26, 2005
 Author: see history.txt (has a long and bloody history...)
         
 Maintainer:
@@ -18,11 +29,6 @@ READ THE INSTALL FILE!!!!!!!
 
 CHANGELOG
 ---------
-v 1.2.5.5 by Robert Shady (oeginc)
-- fixed problem with salemaker not working on imported items.
-- fixed CR/LF's in license.txt file to display properly under windows like the rest of the .txt files.
-
-
 v 1.2.5.4
 - fixed froogle error (thanks to Baelzebub)
 - Images changes

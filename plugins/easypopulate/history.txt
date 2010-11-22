@@ -291,21 +291,20 @@ v 1.2.5.4
 - migrated config to admin area of Zen Cart
 
 ------------------------------------
-
-Modified by Robert Shady (oeginc) rshady (at) oeginc.com
-
-v 1.2.5.5
-- fixed problem with salemaker not working on imported items.
-- fixed CR/LF's in license.txt file to display properly under windows like the rest of the .txt files.
-
-------------------------------------
-
 Derived from the Excel Import 1.51 by:
 
 ukrainianshop.net
 
   Copyright (c) 2002-2003 Tim Wasson
   Released under the GNU General Public License
+
+
+Modified by Shafiq ur Rahman. www.systekcorp.com
+v 1.2.5.6
+- Added featured product listing in upload and download file. 
+
+----------------------------------------------------------------
+
 */
 //*******************************
 //*******************************

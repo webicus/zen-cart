@@ -95,6 +95,18 @@ define('EASYPOPULATE_SPECIALS_DELETE', '<font color="fuchsia"><b>DELETED! - Mode
 define('EASYPOPULATE_SPECIALS_DELETE_FAIL', '<font color="darkviolet"><b>NOT FOUND! - Model:</b> %s - cant delete special...</font><br />');
 define('EASYPOPULATE_SPECIALS_FOOTER', '</p>'); // close paragraph
 
+/**
+* $featured_print defines
+*/
+// results of specials in $specials_print
+define('EASYPOPULATE_FEATURED_HEADING', '<b><u>Featured Summary</u></b><p class=smallText>'); // open paragraph
+//define('EASYPOPULATE__PRICE_FAIL', '<font color="red"><b>SKIPPED! - Model:</b> %s - specials price higher than normal price...</font><br />');
+define('EASYPOPULATE_FEATURED_NEW', '<font color="green"><b>NEW! - Model:</b> %s</font> | %s | %s | <font color="green"><b>%s</b></font> |<br />');
+define('EASYPOPULATE_FEATURED_UPDATE', '<font color="mediumblue"><b>UPDATED! - Model:</b> %s</font> | %s | %s | <font color="green"><b>%s</b></font> |<br />');
+//define('EASYPOPULATE_SPECIALS_DELETE', '<font color="fuchsia"><b>DELETED! - Model:</b> %s</font> | %s |<br />');
+//define('EASYPOPULATE_SPECIALS_DELETE_FAIL', '<font color="darkviolet"><b>NOT FOUND! - Model:</b> %s - cant delete special...</font><br />');
+define('EASYPOPULATE_FEATURED_FOOTER', '</p>'); // close paragraph
+
 // error log defines - for ep_debug_log.txt
 //define('EASYPOPULATE_ERRORLOG_SQL_ERROR', 'MySQL error %s: %s\nWhen executing:\n%sn');
 ?>
