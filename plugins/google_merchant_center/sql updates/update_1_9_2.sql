@@ -1,8 +1,6 @@
 #Google Merchant Center FEEDER
 #
 
-ALTER TABLE products_options_values MODIFY products_options_values_name varchar(150);
-
 SET @configuration_group_id=0;
 SELECT (@configuration_group_id:=configuration_group_id) 
 FROM configuration_group 
@@ -30,7 +28,6 @@ INSERT INTO configuration (configuration_id, configuration_title, configuration_
 (NULL, 'Compress Feed File', 'GOOGLE_PRODUCTS_COMPRESS', 'false', 'Compress Google froogle file', @configuration_group_id, 9, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 (NULL, 'Uploaded date', 'GOOGLE_PRODUCTS_UPLOADED_DATE', '', 'Date and time of the last upload', @configuration_group_id, 10, NOW(), NULL, NULL),
 (NULL, 'Output Directory', 'GOOGLE_PRODUCTS_DIRECTORY', 'feed/google/', 'Set the name of your froogle output directory', @configuration_group_id, 11, NOW(), NULL, NULL),
-(NULL, 'Enable Advanced XML Sanitization', 'GOOGLE_PRODUCTS_XML_SANITIZATION', 'false', 'If weird characters are causing your feed to not validate and you have already ensured your Zen Cart has been properly updated to use the UTF-8 charset, try enabling this option.  If this option is already enabled, try disabling it.', @configuration_group_id, 12, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 
 (NULL, 'Max products', 'GOOGLE_PRODUCTS_MAX_PRODUCTS', '0', 'Default = 0 for infinite # of products', @configuration_group_id, 20, NOW(), NULL, NULL),
 (NULL, 'Starting Point', 'GOOGLE_PRODUCTS_START_PRODUCTS', '0', 'Start at which entry (not product_id)?<br />Default=0', @configuration_group_id, 21, NOW(), NULL, NULL),
@@ -43,9 +40,10 @@ INSERT INTO configuration (configuration_id, configuration_title, configuration_
 (NULL, 'Expiration Date Adjust', 'GOOGLE_PRODUCTS_EXPIRATION_DAYS', '29', 'Expiration Date Adjust in Days', @configuration_group_id, 31, NOW(), NULL, NULL),
 
 (NULL, 'Show Default Currency', 'GOOGLE_PRODUCTS_CURRENCY_DISPLAY', 'true', 'Display Currency', @configuration_group_id, 40, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
-(NULL, 'Default Currency', 'GOOGLE_PRODUCTS_CURRENCY', 'USD', 'Select currency', @configuration_group_id, 41, NOW(), NULL, 'google_cfg_pull_down_currencies('),
-(NULL, 'Show Offer ID', 'GOOGLE_PRODUCTS_OFFER_ID', 'id', 'A unique alphanumeric identifier for the item - products_id code. ', @configuration_group_id, 42, NOW(), NULL, 'zen_cfg_select_option(array(\'id\', \'model\', \'UPC\', \'ISBN\', \'EAN\', \'false\'),'),
+(NULL, 'Default Currency', 'GOOGLE_PRODUCTS_CURRENCY', 'USD', 'Select currency', @configuration_group_id, 41, NOW(), NULL, 'zen_cfg_pull_down_currencies('),
+(NULL, 'Show Offer ID', 'GOOGLE_PRODUCTS_OFFER_ID', 'id', 'A unique alphanumeric identifier for the item - products_id code. ', @configuration_group_id, 42, NOW(), NULL, 'zen_cfg_select_option(array(\'id\', \'model\', \'UPC\', \'ISBN\', \'false\'),'),
 (NULL, 'Show Quantity', 'GOOGLE_PRODUCTS_IN_STOCK', 'false', 'Display products quantity?', @configuration_group_id, 43, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
+(NULL, 'Include Zero Quantity', 'GOOGLE_PRODUCTS_ZERO_QUANTITY', 'false', 'Include products with zero quantity?', @configuration_group_id, 44, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 (NULL, 'Default Quantity', 'GOOGLE_PRODUCTS_DEFAULT_QUANTITY', '0', 'What is the default quantity for products with zero quantity?', @configuration_group_id, 45, NOW(), NULL, NULL), 
 (NULL, 'Shipping Options', 'GOOGLE_PRODUCTS_SHIPPING', '', 'The shipping options available for an item', @configuration_group_id, 46, NOW(), NULL, NULL),
 (NULL, 'Default Condition', 'GOOGLE_PRODUCTS_CONDITION', 'new', 'Choose your default condition', @configuration_group_id, 47, NOW(), NULL, 'zen_cfg_select_option(array(\'new\', \'used\', \'refurbished\'),'),
@@ -53,15 +51,14 @@ INSERT INTO configuration (configuration_id, configuration_title, configuration_
 (NULL, 'Default Product Type', 'GOOGLE_PRODUCTS_DEFAULT_PRODUCT_TYPE', '', 'Enter your product type if using default', @configuration_group_id, 49, NOW(), NULL, NULL),
 (NULL, 'Product Type', 'GOOGLE_PRODUCTS_PRODUCT_TYPE', 'top', 'Use top-level, bottom-level, full-path, or your default setting as product_type?', @configuration_group_id, 50, NOW(), NULL, 'zen_cfg_select_option(array(\'default\', \'top\', \'bottom\', \'full\'),'),
 (NULL, 'Show Feed Language', 'GOOGLE_PRODUCTS_LANGUAGE_DISPLAY', 'false', 'Display Feed Language', @configuration_group_id, 51, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
-(NULL, 'Feed Language', 'GOOGLE_PRODUCTS_LANGUAGE', '1', 'Set your feed language (required):', @configuration_group_id, 53, NOW(), NULL, 'google_cfg_pull_down_languages_list('),
+(NULL, 'Feed Language', 'GOOGLE_PRODUCTS_LANGUAGE', '', 'If Show Feed Language is True, what is your feed language?', @configuration_group_id, 53, NOW(), NULL, 'zen_cfg_pull_down_languages_list('),
 (NULL, 'Show Weight', 'GOOGLE_PRODUCTS_WEIGHT', 'false', 'Include products weight?', @configuration_group_id, 53, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 (NULL, 'Weight Units', 'GOOGLE_PRODUCTS_UNITS', 'pounds', 'What unit of weight measure?<br />pounds OR kilograms', @configuration_group_id, 54, NOW(), NULL, 'zen_cfg_select_option(array(\'pounds\', \'kilograms\'),'),
-(NULL, 'UPC/ISBN/EAN', 'GOOGLE_PRODUCTS_ASA_UPC', 'false', 'If using Numinix Product Fields, include UPC/ISBN/EAN?', @configuration_group_id, 55, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
+(NULL, 'UPC/ISBN', 'GOOGLE_PRODUCTS_ASA_UPC', 'false', 'If using Numinix Product Fields, include UPC/ISBN?', @configuration_group_id, 55, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 (NULL, 'Description 2', 'GOOGLE_PRODUCTS_ASA_DESCRIPTION_2', 'false', 'If using Numinix Product Fields, append description 2 to description?', @configuration_group_id, 56, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 (NULL, 'Use Meta Title', 'GOOGLE_PRODUCTS_META_TITLE', 'false', 'Use meta title as the title if it exists (for products only)?', @configuration_group_id, 57, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 (NULL, 'Enable Map Pricing', 'GOOGLE_PRODUCTS_MAP_PRICING', 'false', 'Enable MAP Pricing (requires separate add-on)?', @configuration_group_id, 58, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'), 
 (NULL, 'Use cPath in url', 'GOOGLE_PRODUCTS_USE_CPATH', 'false', 'Use cPath in product info url', @configuration_group_id, 59, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
-(NULL, 'Google Product Category Default', 'GOOGLE_PRODUCTS_DEFAULT_PRODUCT_CATEGORY', '', 'Enter a default Google product category from the <a href="http://www.google.com/support/merchants/bin/answer.py?answer=160081" target="_blank">Google Category Taxonomy</a> or leave blank (note: you can override this default setting by creating a Google Product Category attribute as per the documentation):', @configuration_group_id, 60, NOW(), NULL, NULL),
 
 (NULL, 'Display Tax', 'GOOGLE_PRODUCTS_TAX_DISPLAY', 'false', 'Display tax per product? (US only)', @configuration_group_id, 70, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\'),'),
 (NULL, 'Tax Country', 'GOOGLE_PRODUCTS_TAX_COUNTRY', 'US', 'The country an item is taxed in (2-letter ISO CODE)', @configuration_group_id, 71, NOW(), NULL, NULL),
@@ -74,7 +71,7 @@ INSERT INTO configuration (configuration_id, configuration_title, configuration_
 
 (NULL, 'Select Shipping Method', 'GOOGLE_PRODUCTS_SHIPPING_METHOD', 'none', 'Select a shipping method from the drop-down list that is used in your store, or leave as none', @configuration_group_id, 90, NOW(), NULL, 'zen_cfg_select_option(array(\'zones table rate\', \'flat rate\', \'per item\', \'per weight unit\', \'table rate\', \'zones\', \'percategory\', \'free shipping\', \'free rules shipping\', \'none\'),'),
 (NULL, 'Table Zone ID', 'GOOGLE_PRODUCTS_RATE_ZONE', '', 'Enter the table rate ID if using a shipping method that uses table rates:', @configuration_group_id, 91, NOW(), NULL, NULL),  
-(NULL, 'Shipping Country', 'GOOGLE_PRODUCTS_SHIPPING_COUNTRY', '', 'Select the destination country for the shipping rates:', @configuration_group_id, 92, NOW(), NULL, 'google_cfg_pull_down_country_list('),
+(NULL, 'Shipping Country', 'GOOGLE_PRODUCTS_SHIPPING_COUNTRY', '', 'Select the destination country for the shipping rates:', @configuration_group_id, 92, NOW(), NULL, 'zen_cfg_pull_down_country_list('),
 (NULL, 'Shipping Region', 'GOOGLE_PRODUCTS_SHIPPING_REGION', '', 'Enter the destination region within the selected country (state code, or zip with wildcard *):', @configuration_group_id, 93, NOW(), NULL, NULL),
 (NULL, 'Shipping Service', 'GOOGLE_PRODUCTS_SHIPPING_SERVICE', '', 'Enter the shipping service type (i.e. Ground):', @configuration_group_id, 94, NOW(), NULL, NULL),
 (NULL, 'Pickup', 'GOOGLE_PRODUCTS_PICKUP', 'do not display', 'Local pickup available?', @configuration_group_id, 95, NOW(), NULL, 'zen_cfg_select_option(array(\'true\', \'false\', \'do not display\'),'),
