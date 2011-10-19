@@ -3,14 +3,14 @@
  * Sitemap XML
  *
  * @package Sitemap XML
- * @copyright Copyright 2005-2009, Andrew Berezin eCommerce-Service.com
- * @copyright Portions Copyright 2003-2008 Zen Cart Development Team
+ * @copyright Copyright 2005-2011, Andrew Berezin eCommerce-Service.com
+ * @copyright Portions Copyright 2003-2011 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
  * @link http://www.sitemaps.org/
- * @version $Id: sitemapxml.php, v 2.1.0 30.04.2009 10:35 AndrewBerezin $
+ * @version $Id: sitemapxml.php, v 2.5.1 05.08.2011 13:43:05 AndrewBerezin $
  */
-  @define('SITEMAPXML_VERSION', 'v 2.1.0 30.04.2009 10:35');
+
 /*
 Version 2.0.
 Generate xml-sitemaps for:
@@ -41,53 +41,12 @@ genxml=no - don't generate xml-files.
 rebuild=yes - force rebuild xml files
 checkurl=yes - check urls
 
-
-Using index.php wrapper - http://domain.com/index.php?main_page=sitemapxml
-Using languages file and etc.
-
 Comments and suggestions are welcome.
 If you need any more sitemaps (faq, news, etc) you may ask me, but I will do only if it matches with my interests.
-*/
-/*
-TODO:
-1. Add sitemap for manufacturers (???)
 */
 
 //@ini_set('display_errors', '1');
 //error_reporting(E_ALL);
-
-$time_start = explode (' ', microtime());
-
-@define('SITEMAPXML_COMPRESS', 'false');
-@define('SITEMAPXML_LASTMOD_FORMAT', 'date');
-@define('SITEMAPXML_USE_EXISTING_FILES', 'true'); // new
-@define('SITEMAPXML_USE_DEFAULT_LANGUAGE', 'true'); // new
-@define('SITEMAPXML_PING_URLS', "Google => http://www.google.com/webmasters/sitemaps/ping?sitemap=%s
-Yahoo! => http://search.yahooapis.com/SiteExplorerService/V1/ping?sitemap=%s
-Ask.com => http://submissions.ask.com/ping?sitemap=%s
-Microsoft => http://www.moreover.com/ping?u=%s"); // new
-
-@define('SITEMAPXML_PRODUCTS_ORDERBY', 'p.products_sort_order ASC, last_date DESC'); // new
-@define('SITEMAPXML_CATEGORIES_ORDERBY', 'c.sort_order ASC, last_date DESC'); // new
-@define('SITEMAPXML_REVIEWS_ORDERBY', 'r.reviews_rating ASC, last_date DESC'); // new
-@define('SITEMAPXML_EZPAGES_ORDERBY', 'p.sidebox_sort_order ASC'); // new
-@define('SITEMAPXML_TESTIMONIALS_ORDERBY', 'last_date DESC'); // new
-
-@define('SITEMAPXML_PRODUCTS_CHANGEFREQ', '');
-@define('SITEMAPXML_CATEGORIES_CHANGEFREQ', '');
-@define('SITEMAPXML_REVIEWS_CHANGEFREQ', ''); // new
-@define('SITEMAPXML_EZPAGES_CHANGEFREQ', '');
-@define('SITEMAPXML_TESTIMONIALS_CHANGEFREQ', ''); // new
-
-// Deleted:
-// SITEMAPXML_EZPAGES_HEADER
-// SITEMAPXML_EZPAGES_SIDEBOX
-// SITEMAPXML_EZPAGES_FOOTER
-// SITEMAPXML_EZPAGES_CHANGE_PRIOR
-// SITEMAPXML_CAT_CHANGE_PRIOR
-// SITEMAPXML_PROD_CHANGE_PRIOR
-// SITEMAPXML_XML_FS_DIRECTORY
-// SITEMAPXML_USE_XSL
 
 if (!get_cfg_var('safe_mode') && function_exists('set_time_limit')) {
   set_time_limit(0);
@@ -125,5 +84,5 @@ $SiteMapXMLmodules = glob(DIR_WS_MODULES . 'pages/' . $current_page_base . '/sit
 // This should be last line of the script:
 $zco_notifier->notify('NOTIFY_HEADER_END_SITEMAPXML');
 
-  @ini_set('display_errors', '0');
-  error_reporting(0);
+//  @ini_set('display_errors', '1');
+//  error_reporting(1);

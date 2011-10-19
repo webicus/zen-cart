@@ -3,33 +3,41 @@
  * Sitemap XML
  *
  * @package Sitemap XML
- * @copyright Copyright 2005-2009, Andrew Berezin eCommerce-Service.com
- * @copyright Portions Copyright 2003-2008 Zen Cart Development Team
+ * @copyright Copyright 2005-2011, Andrew Berezin eCommerce-Service.com
+ * @copyright Portions Copyright 2003-2011 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
  * @link http://www.sitemaps.org/
- * @version $Id: sitemapxml.php, v 2.1.0 30.04.2009 10:35 AndrewBerezin $
+ * @version $Id: sitemapxml.php, v 2.3.4 05.08.2011 13:43:08 AndrewBerezin $
  */
 ////////////////////////////////////////////////////////////////////////
 // Sitemap Base Class
 @define('SITEMAPXML_MAX_ENTRYS', 50000);
-@define('SITEMAPXML_MAX_SIZE', 10485760);
+@define('SITEMAPXML_MAX_SIZE', 10000000); // 10485760
+
 class zen_SiteMapXML {
-  var $filename;
   var $savepath;
+  var $sitemap;
+  var $videomap;
   var $sitemapindex;
+  var $compress;
   var $base_url;
+  var $magicSeo = false;
   var $submitFlag_url;
   var $duplicatedLinks;
   var $checkurl;
   var $languagesCodes = array();
+  var $languagesIDsArray = array();
+  var $languagesIDs;
+  var $languagesCount = 0;
+  var $default_language_id = 0;
+
   var $sitemapItems = array();
   var $submitFlag = true;
   var $inline = true;
   var $ping = false;
   var $rebuild = false;
   var $genxml = true;
-  var $messageSilently = true;
   var $stylesheet = '';
 
   var $sitemapFileItems = 0;
@@ -43,30 +51,47 @@ class zen_SiteMapXML {
   var $sitemapFileBuffer = '';
   var $sitemapxml_max_entrys;
   var $sitemapxml_max_size;
+  var $timezone;
 
   var $fb_maxsize = 4096;
   var $fb = '';
   var $fp = null;
   var $fn = '';
 
+  var $statisticTotalTime = 0;
+  var $statisticTotalQueries = 0;
+  var $statisticTotalQueriesTime = 0;
+  var $statisticModuleTime = 0;
+  var $statisticModuleQueries = 0;
+  var $statisticModuleQueriesTime = 0;
+
   function zen_SiteMapXML($inline=false, $ping=false, $rebuild=false, $genxml=true) {
     global $db;
-    $this->filename = "sitemap";
-    $this->sitemapindex = "sitemapindex.xml";
+    $this->statisticTotalTime = explode (' ', microtime());
+    $this->statisticTotalTime = $this->statisticTotalTime[1]+$this->statisticTotalTime[0];
+    $this->statisticTotalQueries = $db->count_queries;
+    $this->statisticTotalQueriesTime = $db->total_query_time;
+    $this->statisticModuleTime = explode (' ', microtime());
+    $this->statisticModuleTime = $this->statisticModuleTime[1]+$this->statisticModuleTime[0];
+    $this->statisticModuleQueries = $db->count_queries;
+    $this->statisticModuleQueriesTime = $db->total_query_time;
+
+    $this->sitemap = 'sitemap';
+    $this->videomap = 'videomap';
+    $this->sitemapindex = SITEMAPXML_SITEMAPINDEX . '.xml';
+    $this->compress = (SITEMAPXML_COMPRESS == 'true' ? true : false);
     $this->duplicatedLinks = array();
     $this->sitemapItems = array();
     $this->savepath = DIR_FS_CATALOG;
     $this->base_url = HTTP_SERVER . DIR_WS_CATALOG;
     $this->submit_url = utf8_encode(urlencode($this->base_url . $this->sitemapindex));
     $this->submitFlag = true;
-    $this->messageSilently = $inline;
     $this->inline = $inline;
     $this->ping = $ping;
     $this->rebuild = $rebuild;
     $this->checkurl = false;
     $this->genxml = $genxml;
     $this->sitemapFileFooter = '</urlset>';
-    $this->sitemapFileHeader = $this->_SitemapXMLHeader('urlset');
     $this->sitemapFileBuffer = '';
     $this->sitemapxml_max_entrys = SITEMAPXML_MAX_ENTRYS;
     $this->sitemapxml_max_size = SITEMAPXML_MAX_SIZE-strlen($this->sitemapFileFooter);
@@ -76,31 +101,51 @@ class zen_SiteMapXML {
     }
     foreach ($lng->catalog_languages as $language) {
       $this->languagesCodes[$language['id']] = $language['code'];
+      $this->languagesDirectory[$language['id']] = $language['directory'];
+      $this->languagesIDsArray[] = $language['id'];
+      if ($language['code'] == DEFAULT_LANGUAGE) {
+        $this->default_language_id = $language['id'];
+      }
     }
+    $this->languagesIDs = implode(',', $this->languagesIDsArray);
+    $this->languagesCount = sizeof($this->languagesCodes);
+
     $this->sitemapItems = array();
 
-//    $this->message('Save path - "' . $this->savepath . '"' . '<br />');
+    $timezone = date('O', $date);
+    $this->timezone = substr($timezone, 0, 3) . ":" . substr($timezone, 3, 2);
 
+    $this->magicSeo = false;
+    if (function_exists('unMagicSeoDoSeo')) {
+      $this->magicSeo = true;
+    }
+
+    if ($this->inline) {
+      ob_start();
+    }
+
+//    echo 'Save path - "' . $this->savepath . '"' . '<br />';
 /*
     if (!($robots_txt = @file_get_contents($this->savepath . 'robots.txt'))) {
-      $this->message('<b>File "robots.txt" not found in save path - "' . $this->savepath . 'robots.txt"</b>' . '<br />');
+      echo '<b>File "robots.txt" not found in save path - "' . $this->savepath . 'robots.txt"</b>' . '<br />';
     } elseif (!preg_match("@Sitemap:\s*(.*)\n@i", $robots_txt . "\n", $m)) {
-      $this->message('<b>Sitemap location don\'t specify in robots.txt</b>' . '<br />');
+      echo '<b>Sitemap location don\'t specify in robots.txt</b>' . '<br />';
     } elseif (trim($m[1]) != $this->base_url . $this->sitemapindex) {
-      $this->message('<b>Sitemap location specified in robots.txt "' . trim($m[1]) . '" another than "' . $this->base_url . $this->sitemapindex . '"</b>' . '<br />');
+      echo '<b>Sitemap location specified in robots.txt "' . trim($m[1]) . '" another than "' . $this->base_url . $this->sitemapindex . '"</b>' . '<br />';
     }
 */
   }
 
-  function SitemapOpen($file, $last_date) {
+  function SitemapOpen($file, $last_date=0, $type='sitemap') {
     if (strlen($this->sitemapFileBuffer) > 0) $this->SitemapClose();
     if (!$this->genxml) return false;
     $this->sitemapFile = $file;
+    $this->sitemapType = $type;
     $this->sitemapFileName = $this->_getNameFileXML($file);
     if ($this->_checkFTimeSitemap($this->sitemapFileName, $last_date) == false) return false;
     if (!$this->_fileOpen($this->sitemapFileName)) return false;
     $this->_SitemapReSet();
-    $this->sitemapFileBuffer .= $this->sitemapFileHeader;
+    $this->sitemapFileBuffer .= $this->_SitemapXMLHeader();
     return true;
   }
 
@@ -109,22 +154,33 @@ class zen_SiteMapXML {
     return true;
   }
 
-  function SitemapWriteItem($loc, $lastmod='', $changefreq='') {
+  function SitemapWriteItem($loc, $lastmod='', $changefreq='', $xtra='') {
     if (!$this->genxml) return false;
+    if ($this->magicSeo) {
+      $href = '<a href="' . $loc . '">';
+      $out = unMagicSeoDoSeo($href);
+      $loc = substr($out, 0, -2);
+      $loc = substr($loc, 9);
+    }
     if (isset($this->duplicatedLinks[$loc])) return false;
     $this->duplicatedLinks[$loc] = true;
-    if ($this->checkurl && !$this->_curlExecute($loc, 'header')) return false;
+    if ($this->checkurl) {
+      if (!($info = $this->_curlExecute($loc, 'header')) || $info['http_code'] != 200) return false;
+    }
     $itemRecord  = '';
     $itemRecord .= ' <url>' . "\n";
     $itemRecord .= '  <loc>' . utf8_encode($loc) . '</loc>' . "\n";
-    if (isset($lastmod) && zen_not_null($lastmod)) {
+    if (isset($lastmod) && zen_not_null($lastmod) && (int)$lastmod > 0) {
       $itemRecord .= '  <lastmod>' . $this->_LastModFormat($lastmod) . '</lastmod>' . "\n";
     }
-    if (isset($changefreq) && zen_not_null($changefreq)) {
+    if (zen_not_null($changefreq) && $changefreq != 'no') {
       $itemRecord .= '  <changefreq>' . $changefreq . '</changefreq>' . "\n";
     }
     if ($this->sitemapFileItemsMax > 0) {
-      $itemRecord .= '  <priority>' . max(number_format((($this->sitemapFileItemsMax-$this->sitemapFileItemsTotal)/$this->sitemapFileItemsMax), 2, '.', ''), 0.10) . '</priority>' . "\n";
+      $itemRecord .= '  <priority>' . number_format(max((($this->sitemapFileItemsMax-$this->sitemapFileItemsTotal)/$this->sitemapFileItemsMax), 0.10), 2, '.', '') . '</priority>' . "\n";
+    }
+    if (isset($xtra) && zen_not_null($xtra)) {
+      $itemRecord .= $xtra;
     }
     $itemRecord .= ' </url>' . "\n";
 
@@ -134,7 +190,7 @@ class zen_SiteMapXML {
       $this->sitemapFileName = $this->_getNameFileXML($this->sitemapFile . substr('000' . $this->sitemapFileNameNumber, -3));
       if (!$this->_fileOpen($this->sitemapFileName)) return false;
       $this->_SitemapReSetFile();
-      $this->sitemapFileBuffer .= $this->sitemapFileHeader;
+      $this->sitemapFileBuffer .= $this->_SitemapXMLHeader();
     }
     $this->sitemapFileBuffer .= $itemRecord;
     $this->_fileWrite($this->sitemapFileBuffer);
@@ -147,9 +203,15 @@ class zen_SiteMapXML {
   }
 
   function SitemapClose() {
+    global $db;
     $this->_SitemapCloseFile();
     if ($this->sitemapFileItemsTotal > 0) {
-      $this->message(sprintf(TEXT_TOTAL_SITEMAP, ($this->sitemapFileNameNumber+1), $this->sitemapFileItemsTotal, $this->sitemapFileSizeTotal) . '<br />');
+      $time_end = explode (' ', microtime());
+      $time_end = $time_end[1]+$time_end[0];
+      $total_time = $time_end-$this->statisticModuleTime;
+      $total_queries = $db->count_queries - $this->statisticModuleQueries;
+      $total_queries_time = $db->total_query_time - $this->statisticModuleQueriesTime;
+      echo sprintf(TEXT_TOTAL_SITEMAP, ($this->sitemapFileNameNumber+1), $this->sitemapFileItemsTotal, $this->sitemapFileSizeTotal, $this->timefmt($total_time), $total_queries, $this->timefmt($total_queries_time)) . '<br />';
     }
     $this->_SitemapReSet();
   }
@@ -157,15 +219,16 @@ class zen_SiteMapXML {
 // generate sitemap index file
   function GenerateSitemapIndex() {
     if ($this->genxml) {
-      $this->message('<h3>' . TEXT_HEAD_SITEMAP_INDEX . '</h3>');
-      $content = $this->_SitemapXMLHeader('sitemapindex');
+      echo '<h3>' . TEXT_HEAD_SITEMAP_INDEX . '</h3>';
+      $this->SitemapOpen('index', 0, 'index');
+      $content = $this->_SitemapXMLHeader();
       $records_count = 0;
-      $pattern = '/^' . $this->filename . '.*(\.xml' . (SITEMAPXML_COMPRESS != 'true' ? '|\.xml\.gz' : '') . ')$/';
+      $pattern = '/^' . $this->sitemap . '.*(\.xml' . ($this->compress ? '|\.xml\.gz' : '') . ')$/';
       if ($za_dir = @dir(rtrim($this->savepath, '/'))) {
         clearstatcache();
         while ($filename = $za_dir->read()) {
           if (preg_match($pattern, $filename) > 0 && $filename != $this->sitemapindex && filesize($this->savepath . $filename) > 0) {
-            $this->message(TEXT_INCLUDE_FILE . $filename . ' (<a href="' . $this->base_url . basename($filename) . '" target="_blank">' . $this->base_url . basename($filename) . '</a>)' . '<br />');
+            echo TEXT_INCLUDE_FILE . $filename . ' (<a href="' . $this->base_url . basename($filename) . '" target="_blank">' . $this->base_url . basename($filename) . '</a>)' . '<br />';
             $content .= ' <sitemap>' . "\n";
             $content .= '  <loc>' . $this->base_url . basename($filename) . '</loc>' . "\n";
             $content .= '  <lastmod>' . $this->_LastModFormat(filemtime($this->savepath . $filename)) . '</lastmod>' . "\n";
@@ -179,7 +242,12 @@ class zen_SiteMapXML {
     }
 
     if ($this->inline) {
-      $this->_outputSitemapIndex();
+      if ($this->submitFlag) {
+        ob_end_clean();
+        $this->_outputSitemapIndex();
+      } else {
+        ob_end_flush();
+      }
     }
 
     if ($this->ping) {
@@ -223,30 +291,44 @@ class zen_SiteMapXML {
 
   function setStylesheet($stylesheet) {
     $this->stylesheet = $stylesheet;
-    $this->sitemapFileHeader = $this->_SitemapXMLHeader('urlset');
   }
 
   function getLanguageParameter($language_id, $lang_parm='language') {
     $code = '';
+    if (!isset($language_id) || $language_id == 0) {
+      $language_id = $this->default_language_id;
+    }
     if (isset($this->languagesCodes[$language_id])) {
-      if (($this->languagesCodes[$language_id] != DEFAULT_LANGUAGE && sizeof($this->languagesCodes[$language_id]) > 1) || SITEMAPXML_USE_DEFAULT_LANGUAGE == 'true') {
+      if (($this->languagesCodes[$language_id] != DEFAULT_LANGUAGE && $this->languagesCount > 1) || SITEMAPXML_USE_DEFAULT_LANGUAGE == 'true') {
         $code = '&' . $lang_parm . '=' . $this->languagesCodes[$language_id];
       }
+    } else {
+      $code = false;
     }
     return $code;
   }
 
-  function message($msg='', $type='') {
-    if ($this->messageSilently != true) {
-      echo $msg . "\n";
+  function getLanguageDirectory($language_id) {
+    if (isset($this->languagesDirectory[$language_id])) {
+      $directory = $this->languagesDirectory[$language_id];
+    } else {
+      $directory = false;
     }
+    return $directory;
+  }
+
+  function getLanguagesIDs() {
+    return $this->languagesIDs;
+  }
+
+  function getLanguagesCodes() {
+    return $this->languagesCodes;
   }
 
 /////////////////////////
 
   function _checkFTimeSitemap($filename, $last_date=0) {
 // TODO: Multifiles
-//var_dump($filename);echo '<br />';
     if ($this->rebuild == true) return true;
     if ($last_date == 0) return true;
     clearstatcache();
@@ -254,18 +336,24 @@ class zen_SiteMapXML {
       && file_exists($this->savepath . $filename)
       && (filemtime($this->savepath . $filename) >= strtotime($last_date))
       && filesize($this->savepath . $filename) > 0) {
-      $this->message('"' . $filename . '" ' . TEXT_FILE_NOT_CHANGED . '<br />');
+      echo '"' . $filename . '" ' . TEXT_FILE_NOT_CHANGED . '<br />';
       return false;
     }
     return true;
   }
 
-  function _getNameFileXML($type) {
-    if ($type == 'index') {
-      $filename = $this->sitemapindex;
-    } else {
-      $compress = defined('SITEMAPXML_COMPRESS') ? SITEMAPXML_COMPRESS : 'false';
-      $filename = $this->filename . $type . '.xml' . ($compress == 'true' ? '.gz' : '');
+  function _getNameFileXML($filename) {
+    switch ($this->sitemapType) {
+      case 'index':
+        $filename = $this->sitemapindex;
+        break;
+      case 'video':
+        $filename = $this->videomap . $filename . '.xml' . ($this->compress ? '.gz' : '');
+        break;
+      case 'sitemap':
+      default:
+        $filename = $this->sitemap . $filename . '.xml' . ($this->compress ? '.gz' : '');
+        break;
     }
     return $filename;
   }
@@ -274,7 +362,7 @@ class zen_SiteMapXML {
   function _SaveFileXML($data, $type, $records=0, $skipped=0) {
     $ret = true;
     $filename = $this->_getNameFileXML($type);
-//    $this->message('Output file: ' . $this->savepath . $filename . '<br />');
+//    echo 'Output file: ' . $this->savepath . $filename . '<br />';
     if (substr($filename, -3) == '.gz') {
       if ($gz = gzopen($this->savepath . $filename,'wb9')) {
         gzwrite($gz, $data, strlen($data));
@@ -291,11 +379,11 @@ class zen_SiteMapXML {
       }
     }
     if (!$ret) {
-      $this->message('<span style="font-weight: bold); color: red;"> ' . TEXT_FAILED_TO_OPEN . ' "' . $filename . '"!!!</span>' . '<br />');
+      echo '<span style="font-weight: bold); color: red;"> ' . TEXT_FAILED_TO_OPEN . ' "' . $filename . '"!!!</span>' . '<br />';
       $this->submitFlag = false;
     } else {
-      $this->message(TEXT_URL_FILE . '<a href="' . $this->base_url . $filename . '" target="_blank">' . $this->base_url . $filename . '</a>' . '<br />');
-      $this->message(sprintf(TEXT_WRITTEN, $records, strlen($data), filesize($filename)) . '<br />');
+      echo TEXT_URL_FILE . '<a href="' . $this->base_url . $filename . '" target="_blank">' . $this->base_url . $filename . '</a>' . '<br />';
+      echo sprintf(TEXT_WRITTEN, $records, strlen($data), filesize($filename)) . '<br />';
     }
     return $ret;
   }
@@ -303,28 +391,41 @@ class zen_SiteMapXML {
 // format the LastMod field
   function _LastModFormat($date) {
     if (SITEMAPXML_LASTMOD_FORMAT == 'full') {
-      $timezone = date('O', $date);
-      return gmdate('Y-m-d\TH:i:s', $date) . substr($timezone, 0, 3) . ":" . substr($timezone, 3, 2);
+      return gmdate('Y-m-d\TH:i:s', $date) . $this->timezone;
     } else {
       return gmdate('Y-m-d', $date);
     }
   }
 
-  function _SitemapXMLHeader($tag) {
+  function _SitemapXMLHeader() {
     $header = '';
     $header .= '<?xml version="1.0" encoding="UTF-8"?'.'>' . "\n";
     $header .= ($this->stylesheet != '' ? '<?xml-stylesheet type="text/xsl" href="' . $this->stylesheet . '"?'.'>' . "\n" : "");
-    $header .= '<' . $tag . ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' . "\n";
-    $header .= '        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9' . "\n";
-    $header .= '        http://www.sitemaps.org/schemas/sitemap/0.9/' . ($tag == 'urlset' ? 'sitemap' : 'siteindex') . '.xsd"' . "\n";
-    $header .= '        xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    switch ($this->sitemapType) {
+      case 'index':
+        $header .= '<sitemapindex xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' . "\n";
+        $header .= '        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/siteindex.xsd"' . "\n";
+        $header .= '        xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        break;
+      case 'video':
+        $header .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"' . "\n";
+        $header .= '        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">' . "\n";
+        break;
+      case 'sitemap':
+      default:
+        $header .= '<urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' . "\n";
+        $header .= '        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd"' . "\n";
+        $header .= '        xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        break;
+    }
     $header .= '<!-- generator="Zen-Cart SitemapXML" ' . SITEMAPXML_VERSION . ' -->' . "\n";
+    $header .= '<!-- ' . $this->sitemapFileName . ' created at ' . date('Y-m-d H:i:s') . ' -->' . "\n";
     return $header;
   }
 
   function _SitemapPing() {
     if ($this->submitFlag && SITEMAPXML_PING_URLS !== '') {
-      $this->message('<h3>' . TEXT_HEAD_PING . '</h3>');
+      echo '<h3>' . TEXT_HEAD_PING . '</h3>';
       $pingURLs = explode(";", SITEMAPXML_PING_URLS);
       foreach ($pingURLs as $pingURL) {
         $pingURLarray = explode("=>", $pingURL);
@@ -332,25 +433,25 @@ class zen_SiteMapXML {
         $pingURLarray[0] = trim($pingURLarray[0]);
         $pingURLarray[1] = trim($pingURLarray[1]);
         $pingFullURL = sprintf($pingURLarray[1], $this->submit_url);
-        $this->message('<h4>' . TEXT_HEAD_PING . ' ' . $pingURLarray[0] . '</h4>');
-        $this->message($pingFullURL);
-        $this->message('<div style="background-color: #FFFFCC); border: 1px solid #000000; padding: 5px">');
+        echo '<h4>' . TEXT_HEAD_PING . ' ' . $pingURLarray[0] . '</h4>';
+        echo $pingFullURL . '<br />';
+        echo '<div style="background-color: #FFFFCC); border: 1px solid #000000; padding: 5px">';
         if ($info = $this->_curlExecute($pingFullURL, 'page')) {
-          $this->message($this->_clearHTML($info['html_page']));
+          echo $this->_clearHTML($info['html_page']);
         }
-        $this->message('</div>');
+        echo '</div>';
       }
     }
   }
 
   function _clearHTML($html) {
+    $html = str_replace("&nbsp;", " ", $html);
+    $html = preg_replace("@\s\s+@", " ", $html);
     $html = preg_replace('@<head>(.*)</'.'head>@si', '', $html);
     $html = preg_replace('@<script(.*)</'.'script>@si', '', $html);
     $html = preg_replace('@<title>(.*)</'.'title>@si', '', $html);
-    $html = preg_replace('@<br\s*[/]*>|<p.*>|</p>@si', "\n", $html);
-    $html = preg_replace("@\n\n+@", "\n", $html);
-    $html = str_replace("&nbsp;", " ", $html);
-    $html = preg_replace("@\s\s+@", " ", $html);
+  	$html = preg_replace('@(<br\s*[/]*>|<p.*>|</p>|</div>|</h\d+>)@si', "$1\n", $html);
+    $html = preg_replace("@\n\s+@", "\n", $html);
     $html = strip_tags($html);
     $html = trim($html);
     $html = nl2br($html);
@@ -358,22 +459,20 @@ class zen_SiteMapXML {
   }
 
   function _outputSitemapIndex() {
-    if ($this->submitFlag) {
-      header('Last-Modified: ' . gmdate("r") . ' GMT');
-      header("Content-Type: text/xml; charset=UTF-8");
-      header("Content-Length: " . filesize($this->savepath . $this->sitemapindex));
-  //    header("Content-disposition: inline; filename=" . $this->sitemapindex);
-      echo file_get_contents($this->savepath . $this->sitemapindex);
-    }
+    header('Last-Modified: ' . gmdate('r') . ' GMT');
+    header('Content-Type: text/xml; charset=UTF-8');
+    header('Content-Length: ' . filesize($this->savepath . $this->sitemapindex));
+//    header('Content-disposition: inline; filename=' . $this->sitemapindex);
+    echo file_get_contents($this->savepath . $this->sitemapindex);
   }
 
   function _curlExecute($url, $read='page') {
     if (!function_exists('curl_init')) {
-      $this->message(TEXT_ERROR_CURL_NOT_FOUND . '<br />', 'error');
+      echo TEXT_ERROR_CURL_NOT_FOUND . '<br />';
       return false;
     }
     if (!$ch = curl_init()) {
-      $this->message(TEXT_ERROR_CURL_INIT . '<br />', 'error');
+      echo TEXT_ERROR_CURL_INIT . '<br />';
       return false;
     }
     $url = str_replace('&amp;', '&', $url);
@@ -398,28 +497,28 @@ class zen_SiteMapXML {
     }
 
     if (!$result = curl_exec($ch)) {
-      $this->message(sprintf(TEXT_ERROR_CURL_EXEC, curl_error($ch), $url) . '<br />', 'error');
+      echo sprintf(TEXT_ERROR_CURL_EXEC, curl_error($ch), $url) . '<br />';
       return false;
     } else {
       $info = curl_getinfo($ch);
       curl_close($ch);
       if (empty($info['http_code'])) {
-        $this->message(sprintf(TEXT_ERROR_CURL_NO_HTTPCODE, $url) . '<br />', 'error');
-        return false;
+        echo sprintf(TEXT_ERROR_CURL_NO_HTTPCODE, $url) . '<br />';
+//        return false;
       } elseif ($info['http_code'] != 200) {
 //        $http_codes = @parse_ini_file('includes/http_responce_code.ini');
-//        $this->message("cURL Error: Error http_code '<b>" . $info['http_code'] . " " . $http_codes[$info['http_code']] . "</b>' reading '" . $url . "'. " . '<br />', 'error');
-        $this->message(sprintf(TEXT_ERROR_CURL_ERR_HTTPCODE, $info['http_code'], $url) . '<br />', 'error');
-        return false;
+//        echo "cURL Error: Error http_code '<b>" . $info['http_code'] . " " . $http_codes[$info['http_code']] . "</b>' reading '" . $url . "'. " . '<br />';
+        echo sprintf(TEXT_ERROR_CURL_ERR_HTTPCODE, $info['http_code'], $url) . '<br />';
+//        return false;
       }
       if ($read == 'page') {
         if ($info['size_download'] == 0) {
-          $this->message(sprintf(TEXT_ERROR_CURL_0_DOWNLOAD, $url) . '<br />', 'error');
-          return false;
+          echo sprintf(TEXT_ERROR_CURL_0_DOWNLOAD, $url) . '<br />';
+//          return false;
         }
         if (isset($info['download_content_length']) && $info['download_content_length'] > 0 && $info['download_content_length'] != $info['size_download']) {
-          $this->message(sprintf(TEXT_ERROR_CURL_ERR_DOWNLOAD, $url, $info['size_download'], $info['download_content_length']) . '<br />', 'error');
-          return false;
+          echo sprintf(TEXT_ERROR_CURL_ERR_DOWNLOAD, $url, $info['size_download'], $info['download_content_length']) . '<br />';
+//          return false;
         }
         $info['html_page'] = $result;
       }
@@ -434,10 +533,14 @@ class zen_SiteMapXML {
     $this->sitemapFileSizeTotal = 0;
     $this->sitemapFileNameNumber = 0;
     $this->sitemapFileItemsMax = 0;
+    $this->duplicatedLinks = array();
     return true;
   }
 
   function _SitemapReSetFile() {
+//    $this->sitemapFile = null;
+//    $this->sitemapType = null;
+//    $this->sitemapFileName = null;
     $this->sitemapFileBuffer = '';
     $this->sitemapFileItems = 0;
     $this->sitemapFileSize = 0;
@@ -453,7 +556,15 @@ class zen_SiteMapXML {
       $this->_fileWrite($this->sitemapFileBuffer);
     }
     $this->_fileClose();
-    $this->message(sprintf(TEXT_FILE_SITEMAP_INFO, $this->base_url . $this->sitemapFileName, $this->base_url . $this->sitemapFileName, $this->sitemapFileItems, $this->sitemapFileSize, filesize($this->sitemapFileName)) . '<br />');
+    echo sprintf(TEXT_FILE_SITEMAP_INFO, $this->base_url . $this->sitemapFileName, $this->base_url . $this->sitemapFileName, $this->sitemapFileItems, $this->sitemapFileSize, filesize($this->sitemapFileName)) . '<br />';
+  }
+
+  function statisticModuleReset() {
+    global $db;
+    $this->statisticModuleTime = explode (' ', microtime());
+    $this->statisticModuleTime = $this->statisticModuleTime[1]+$this->statisticModuleTime[0];
+    $this->statisticModuleQueries = $db->count_queries;
+    $this->statisticModuleQueriesTime = $db->total_query_time;
   }
 
 ///////////////////////
@@ -466,7 +577,7 @@ class zen_SiteMapXML {
       $this->fp = fopen($this->savepath . $filename, 'w+');
     }
     if (!$this->fp) {
-      $this->message('<span style="font-weight: bold); color: red;"> ' . TEXT_FAILED_TO_OPEN . ' "' . $filename . '"!!!</span>' . '<br />');
+      echo '<span style="font-weight: bold); color: red;"> ' . TEXT_FAILED_TO_OPEN . ' "' . $filename . '"!!!</span>' . '<br />';
       $this->submitFlag = false;
     }
     return $this->fp;
@@ -508,6 +619,77 @@ class zen_SiteMapXML {
     $m = floor($s/60);
     $s = $s - $m*60;
     return $m . ":" . number_format($s, 4);
+  }
+
+  function _clear_url($str) {
+    $url_parts = parse_url($str);
+    $out = '';
+    if (isset($url_parts["scheme"])) $out .= $url_parts["scheme"] . '://';
+    if (isset($url_parts["host"])) $out .= $url_parts["host"];
+    if (isset($url_parts["port"])) $out .= ':' . $url_parts["port"];
+    if (isset($url_parts["path"])) {
+      $pathinfo = pathinfo($url_parts["path"]);
+      if (!isset($pathinfo["dirname"]) || $pathinfo["dirname"] == '\\' || $pathinfo["dirname"] == '.') $pathinfo["dirname"] = '';
+      $out .= rtrim($pathinfo["dirname"], '/') . '/';
+      if ($pathinfo["basename"] != '') {
+        $out .= str_replace('&', '%26', rawurlencode($pathinfo["basename"]));
+      }
+    }
+    if (isset($url_parts["query"])) {
+      $url_parts["query"] = str_replace('&amp;', '&', $url_parts["query"]);
+      $url_parts["query"] = str_replace('&&', '&', $url_parts["query"]);
+      $url_parts["query"] = str_replace('&', '&amp;', $url_parts["query"]);
+      $out .= '?' . $url_parts["query"];
+    }
+    if (isset($url_parts["fragment"])) $out .= '#' . $url_parts["fragment"];
+    $out = $this->_utf8_encode($out);
+    return $out;
+  }
+
+  function _utf8_encode($str) {
+    if (is_null($this->convert_to_utf8)) {
+      $this->convert_to_utf8 = (strtolower(CHARSET) != 'utf-8');
+    }
+    if ($this->convert_to_utf8 === true) {
+      if (preg_match('@[\x7f-\xff]@', $str)) {
+        $str = iconv(CHARSET, 'utf-8', $str);
+      }
+    }
+    return $str;
+  }
+
+  function _clear_string($str) {
+    $str = $this->_clear_problem_characters($str);
+    $str = html_entity_decode($str, ENT_QUOTES);
+    $str = $this->_utf8_encode($str);
+    $str = htmlspecialchars($str);
+    $str = strip_tags($str);
+    return $str;
+  }
+
+  function _clear_problem_characters($str) {
+    $formattags = array("&");
+    $replacevals = array("&#38;");
+//    $str = str_replace($formattags, $replacevals, $str);
+    $in = $out = array();
+    $in[] = '@&(amp|#038);@i'; $out[] = '&';
+    $in[] = '@&(#036);@i'; $out[] = '$';
+    $in[] = '@&(quot);@i'; $out[] = '"';
+    $in[] = '@&(#039);@i'; $out[] = '\'';
+    $in[] = '@&(nbsp|#160);@i'; $out[] = ' ';
+    $in[] = '@&(hellip|#8230);@i'; $out[] = '...';
+    $in[] = '@&(copy|#169);@i'; $out[] = '(c)';
+    $in[] = '@&(trade|#129);@i'; $out[] = '(tm)';
+    $in[] = '@&(lt|#60);@i'; $out[] = '<';
+    $in[] = '@&(gt|#62);@i'; $out[] = '>';
+    $in[] = '@&(laquo);@i'; $out[] = '«';
+    $in[] = '@&(raquo);@i'; $out[] = '»';
+    $in[] = '@&(deg);@i'; $out[] = '°';
+    $in[] = '@&(mdash);@i'; $out[] = '—';
+    $in[] = '@&(reg);@i'; $out[] = '®';
+    $in[] = '@&(–);@i'; $out[] = '-';
+    $str = preg_replace($in, $out, $str);
+    return $str;
   }
 
 }

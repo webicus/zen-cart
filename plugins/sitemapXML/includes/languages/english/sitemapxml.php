@@ -3,19 +3,19 @@
  * Sitemap XML Feed
  *
  * @package Sitemap XML Feed
- * @copyright Copyright 2005-2009, Andrew Berezin eCommerce-Service.com
- * @copyright Portions Copyright 2003-2008 Zen Cart Development Team
+ * @copyright Copyright 2005-2011, Andrew Berezin eCommerce-Service.com
+ * @copyright Portions Copyright 2003-2011 Zen Cart Development Team
  * @copyright Portions Copyright 2003 osCommerce
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
  * @link http://www.sitemaps.org/
- * @version $Id: site_map_xml.php, v 2.1.0 30.04.2009 10:35 AndrewBerezin $
+ * @version $Id: sitemapxml.php, v 2.3.3 21.07.2010 9:18:18 AndrewBerezin $
  */
 
 define('NAVBAR_TITLE', 'SiteMapXML');
 define('HEADING_TITLE', 'SiteMapXML (' . SITEMAPXML_VERSION . ')');
 
-define('TEXT_EXECUTION_TIME', 'Total Execution Time');
-define('TEXT_TOTAL_SITEMAP', 'Total: files %s, items %s (%s bytes).');
+define('TEXT_EXECUTION_TIME', 'Total: Execution Time %s, DB Queries %s, DB Queries Time %s.');
+define('TEXT_TOTAL_SITEMAP', 'Total: files %s, items %s (%s bytes), execution time %s, db queries %s, db queries time %s.');
 define('TEXT_FILE_SITEMAP_INFO', 'File <a href="%s" target="_blank">%s</a>. Written %s items (%s bytes), Filesize: %s bytes');
 define('TEXT_WRITTEN', 'Written %s items (%s bytes), Filesize: %s bytes');
 
@@ -37,9 +37,16 @@ define('TEXT_ERROR_CURL_ERR_DOWNLOAD', 'cURL Error: Reading less than page size 
 
 define('TEXT_HEAD_PRODUCTS', 'Products Sitemap');
 define('TEXT_HEAD_CATEGORIES', 'Categories Sitemap');
+define('TEXT_HEAD_MANUFACTURERS', 'Manufacturers Sitemap');
+define('TEXT_HEAD_MAINPAGE', 'Mainpage Sitemap');
 define('TEXT_HEAD_EZPAGES', 'Ezpages Sitemap');
 define('TEXT_HEAD_REVIEWS', 'Reviews Sitemap');
 define('TEXT_HEAD_TESTIMONIALS', 'Testimonials Sitemap');
+
+define('TEXT_HEAD_NEWS', 'News Sitemap');
+define('TEXT_HEAD_NEWS_ARTICLES', 'News Articles Sitemap');
+
+define('TEXT_HEAD_PRODUCTS_VIDEO', 'Products Video Sitemap');
 
 define('TEXT_ERRROR_EZPAGES_OUTOFBASE', 'EZ-Page ignored (out of base url): "<b>%s</b>" (%s)');
 define('TEXT_ERRROR_EZPAGES_ROBOTS', 'EZ-Page ignored (found in ROBOTS_PAGES_TO_SKIP): "<b>%s</b>" (%s)');
