@@ -1,0 +1,21 @@
+This version reflects the following version:
+
+Easy Populate Free - from langer / modhole
+
+Download Now!
+File size: 44528 bytes
+Downloaded: 21332 times
+Zen Cart™ Version: v1.3.8
+Version: 1.2.5.6
+Last Updated: Sep 08 2009
+Author: shafiq rahman
+PHP 5.3 Compatible?: Unknown or N/A
+
+------------------------
+
+langer wrote the original, but abandoned it and started easy populate advanced (for pay).
+
+
+ehw
+10/19/2011
+
